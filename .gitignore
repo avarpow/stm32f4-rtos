@@ -1,0 +1,11 @@
+*
+!*/
+!.gitignore
+!*.c
+!*.h
+!*.cpp
+!*.hpp
+[Dd]ebug/
+[Rr]elease/
+[Dd]rivers/
+
