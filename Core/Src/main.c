@@ -22,6 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "motor.h"
 
 /* USER CODE END Includes */
 
@@ -179,27 +180,39 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   int32_t CH1_DC = 0;
   int32_t CH2_DC = 0;
+  motor m1, m2;
+  motor_init(&m1, 0, 0, 0, 0, 0, 0, 0, 0, 50, 250, 0, 180, htim3, TIM_CHANNEL_3);
+  motor_init(&m2, 0, 0, 0, 0, 0, 0, 0, 0, 50, 250, 0, 180, htim3, TIM_CHANNEL_4);
   // int32_t Mode = 0;
   printf("START!"); // print
   while (1)
   {
-    while (CH1_DC < 300)
+    for (int i = 0; i < 180; i++)
     {
-      __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, CH1_DC);
-      __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, CH2_DC);
-      CH1_DC += 10;
-      CH2_DC += 10;
+      motor_move_angle(&m1, 1.0 * i);
+      HAL_Delay(30);
+    }
+    for (int i = 180; i >= 0; i--)
+    {
+      motor_move_angle(&m1, 1.0 * i);
+      HAL_Delay(30);
+    }
+    // while (CH1_DC < 300)
+    // {
+    //   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, CH1_DC);
+    //   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, CH2_DC);
+    //   CH1_DC += 10;
+    //   CH2_DC += 10;
 
-      HAL_Delay(100);
-    }
-    while (CH1_DC > 0)
-    {
-      __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, CH1_DC);
-      __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, CH2_DC);
-      CH1_DC -= 10;
-      CH2_DC -= 10;
-      HAL_Delay(100);
-    }
+    // }
+    // while (CH1_DC > 0)
+    // {
+    //   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, CH1_DC);
+    //   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, CH2_DC);
+    //   CH1_DC -= 10;
+    //   CH2_DC -= 10;
+    //   HAL_Delay(100);
+    // }
 
     printf("testing2!"); // print
     printf("\r\n");      // manual new line
