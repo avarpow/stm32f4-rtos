@@ -72,7 +72,7 @@ void motor_init(struct motor *m, float speed_p, float speed_i, float speed_d, fl
     m->tim = tim;
     m->tim_channel = tim_channel;
     pid_init_set(&m->pos, pos_p, pos_i, pos_d, pos_summax);
-    pid_init_set(m->speed, speed_p, speed_i, speed_d, speed_summax);
+    pid_init_set(&m->speed, speed_p, speed_i, speed_d, speed_summax);
 }
 void motor_move_angle(struct motor *t, float angle)
 {

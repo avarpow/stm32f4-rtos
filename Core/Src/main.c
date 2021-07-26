@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "motor.h"
+#include "cJSON.h"
 
 /* USER CODE END Includes */
 
@@ -34,7 +35,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define COUNTOF(a) (sizeof(a) / sizeof(*(a)))
-
+#define MSG_LEN 10
+#define USART_REC_LEN 200
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -53,6 +55,31 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+cJSON *_flag;
+cJSON *_t_x;
+cJSON *_t_y;
+cJSON *_p_x;
+cJSON *_p_y;
+cJSON *_v_x;
+cJSON *_v_y;
+int flag;
+double t_x;
+double t_y;
+double p_x;
+double p_y;
+double v_x;
+double v_y;
+motor m1, m2;
+
+uint16_t Mode;
+
+uint8_t m_Uart1_RcvByte;
+uint16_t USART1_RX_STA;
+uint8_t USART1_RX_BUF[USART_REC_LEN];
+
+uint8_t m_Uart2_RcvByte;
+uint16_t USART2_RX_STA;
+uint8_t USART2_RX_BUF[USART_REC_LEN];
 
 /* USER CODE END PV */
 
@@ -75,6 +102,7 @@ uint8_t myBuffer[] = "I have gotten your message: "; //User prompt information
 uint8_t Enter[] = "\r\n";                            //Enter carriage return
 uint8_t getBuffer[100] = "ttttttttttttt";            //user-defined buffer
 uint8_t UART1_rxBuffer[1000];                        //user-defined buffer
+uint8_t UART1_msg_ok = 0;
 // Redirect print start
 int __io_putchar(int ch)
 {
@@ -102,37 +130,158 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
   if (huart->ErrorCode & HAL_UART_ERROR_ORE)
   {
     __HAL_UART_CLEAR_OREFLAG(huart);
-    printf("%d errorerrorerror\n\n\n\n\n\n", huart->ErrorCode);
-    HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 12);
+    // printf("%d errorerrorerror\n\n\n\n\n\n", huart->ErrorCode);
+    HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, MSG_LEN);
   }
   /* NOTE : This function should not be modified, when the callback is needed,
             the HAL_UART_ErrorCallback can be implemented in the user file.
    */
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
+void UART1_ReceiveByte(uint8_t Res)
 {
-  if (UartHandle->Instance == USART1)
+
+  if ((USART1_RX_STA & 0x8000) == 0) //????δ???
   {
-    printf("int\r\n");
-    if (HAL_UART_Transmit(&huart1, (uint8_t *)myBuffer, COUNTOF(myBuffer), 5000) != HAL_OK)
+    if (USART1_RX_STA & 0x4000) //???????0x0d
     {
-      Error_Handler();
+      if (Res != 0x0a)
+        USART1_RX_STA = 0; //???????,??????
+      else
+        USART1_RX_STA |= 0x8000; //?????????
     }
-    if (HAL_UART_Transmit(&huart1, (uint8_t *)UART1_rxBuffer, 12, 5000) != HAL_OK)
+    else //??????0X0D
     {
-      Error_Handler();
-    }
-    if (HAL_UART_Transmit(&huart1, (uint8_t *)Enter, COUNTOF(Enter), 5000) != HAL_OK)
-    {
-      Error_Handler();
-    }
-    if (HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 12) != HAL_OK)
-    {
-      Error_Handler();
+      if (Res == 0x0d)
+        USART1_RX_STA |= 0x4000;
+      else
+      {
+        USART_RX_BUF[USART1_RX_STA & 0X3FFF] = Res;
+        USART1_RX_STA++;
+        if (USART1_RX_STA > (USART_REC_LEN - 1))
+          USART1_RX_STA = 0; //???????????,??????????
+      }
     }
   }
 }
+void UART1_ReceiveByte(uint8_t Res)
+{
+
+  if ((USART2_RX_STA & 0x8000) == 0)
+  {
+    if (USART2_RX_STA & 0x4000)
+    {
+      if (Res != 0x0a)
+        USART2_RX_STA = 0;
+      else
+        USART2_RX_STA |= 0x8000; //?????????
+    }
+    else //??????0X0D
+    {
+      if (Res == 0x0d)
+        USART2_RX_STA |= 0x4000;
+      else
+      {
+        USART_RX_BUF[USART2_RX_STA & 0X3FFF] = Res;
+        USART2_RX_STA++;
+        if (USART2_RX_STA > (USART_REC_LEN - 1))
+          USART2_RX_STA = 0; //???????????,??????????
+      }
+    }
+  }
+}
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
+{
+  HAL_StatusTypeDef status;
+  if (UartHandle->Instance == USART1)
+  {
+    UART1_ReceiveByte(m_Uart1_RcvByte);
+    status = HAL_UART_Receive_IT(&huart1, &m_Uart1_RcvByte, 1);
+    // if (HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, MSG_LEN) != HAL_OK)
+    // {
+    //   Error_Handler();
+    // }
+  }
+  if (UartHandle->Instance == USART2)
+  {
+    UART2_ReceiveByte(m_Uart2_RcvByte);
+    status = HAL_UART_Receive_IT(&huart2, &m_Uart2_RcvByte, 1);
+    // if (HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, MSG_LEN) != HAL_OK)
+    // {
+    //   Error_Handler();
+    // }
+  }
+}
+void uart_print(UART_HandleTypeDef *uart, uint8_t *s, int len)
+{
+  if (HAL_UART_Transmit(&uart, s, len * sizeof(*s), 5000) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+void My_Jsonparse(const char *USART_RX_BUF)
+{
+  cJSON *recv_json = cJSON_Parse(USART_RX_BUF);
+  //if (!root) printf("wwwwwwwwwwwwwww\r\n");
+  //else printf("yyyyyyyyyyyyyyyyy!!!!\r\n");
+  cJSON *_flag = cJSON_GetObjectItem(recv_json, "flag");
+  cJSON *_p_x = cJSON_GetObjectItem(recv_json, "pos_x");
+  cJSON *_p_y = cJSON_GetObjectItem(recv_json, "pos_y");
+  cJSON *_v_x = cJSON_GetObjectItem(recv_json, "v_x");
+  cJSON *_v_y = cJSON_GetObjectItem(recv_json, "v_y");
+  cJSON *_t_x = cJSON_GetObjectItem(recv_json, "x");
+  cJSON *_t_y = cJSON_GetObjectItem(recv_json, "y");
+  double t_x = _t_x->valuedouble;
+  double t_y = _t_y->valuedouble;
+  double p_x = _p_x->valuedouble;
+  double p_y = _p_y->valuedouble;
+  double v_x = _v_x->valuedouble;
+  double v_y = _v_y->valuedouble;
+  ;
+  //printf("qaq%s\r\n\r\n", USART_RX_BUF);
+  // printf("----%d\r\n", _flag->valueint);
+  // if (!recv_json) {
+  // 	printf("abaaagbabababababababaab\r\n");
+  // 	return;
+  // }
+  // else
+  // 	printf("yeeeeeeeeeeeeeeeeah!!!!\r\n");
+  // printf("p_x: %.2lf\r\n", p_x);
+  flag = _flag->valueint;
+  m1.pos.cur = 50;
+  if (flag == 1)
+  {
+    // _t_x = cJSON_GetObjectItem(recv_json, "x");
+    //printf("+++++%s\n",_t_x->valuestring);
+    // t_x = _t_x->valuedouble;
+    //???    // target_pos[cnt_tar][0] = t_x;
+    // // _t_y = cJSON_GetObjectItem(recv_json, "y");
+    // // t_y = _t_y->valuedouble;
+    // target_pos[cnt_tar][1] = t_y;
+    //???    cnt_tar++;
+  }
+  else
+  {
+    // printf("success point 1\r\n");
+    // _p_x = cJSON_GetObjectItem(recv_json, "pos_x");
+    // printf("+++++%.2lf\r\n", _p_x->valuedouble);
+    // p_x = _p_x->valuedouble;
+    // printf("p_x=%.2lf\xff\xff\xff\r\n", p_x);
+    m1.speed.cur = p_x;
+    // printf("p_x: %.2lf\r\n", p_x);
+    // _p_y = cJSON_GetObjectItem(recv_json, "pos_y");
+    // p_y = _p_y->valuedouble;
+    m2.speed.cur = p_y;
+    // _v_x = cJSON_GetObjectItem(recv_json, "v_x");
+    // v_x = _v_x->valuedouble;
+    m1.pos.cur = v_x;
+    // _v_y = cJSON_GetObjectItem(recv_json, "v_y");
+    // v_y = _v_y->valuedouble;
+    m2.pos.cur = v_y;
+  }
+  cJSON_Delete(recv_json);
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -178,25 +327,30 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  int32_t CH1_DC = 0;
-  int32_t CH2_DC = 0;
-  motor m1, m2;
-  motor_init(&m1, 0, 0, 0, 0, 0, 0, 0, 0, 50, 250, 0, 180, htim3, TIM_CHANNEL_3);
-  motor_init(&m2, 0, 0, 0, 0, 0, 0, 0, 0, 50, 250, 0, 180, htim3, TIM_CHANNEL_4);
+
+  //pid init
+  motor_init(&m1,
+             0, 0, 0, 0,
+             0, 0, 0, 0,
+             50, 250, 0, 180, htim3, TIM_CHANNEL_3);
+  motor_init(&m2,
+             0, 0, 0, 0,
+             0, 0, 0, 0,
+             50, 250, 0, 180, htim3, TIM_CHANNEL_4);
   // int32_t Mode = 0;
   printf("START!"); // print
   while (1)
   {
-    for (int i = 0; i < 180; i++)
-    {
-      motor_move_angle(&m1, 1.0 * i);
-      HAL_Delay(30);
-    }
-    for (int i = 180; i >= 0; i--)
-    {
-      motor_move_angle(&m1, 1.0 * i);
-      HAL_Delay(30);
-    }
+    // for (int i = 0; i < 180; i++)
+    // {
+    //   motor_move_angle(&m1, 1.0 * i);
+    //   HAL_Delay(30);
+    // }
+    // for (int i = 180; i >= 0; i--)
+    // {
+    //   motor_move_angle(&m1, 1.0 * i);
+    //   HAL_Delay(30);
+    // }
     // while (CH1_DC < 300)
     // {
     //   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, CH1_DC);
@@ -213,9 +367,134 @@ int main(void)
     //   CH2_DC -= 10;
     //   HAL_Delay(100);
     // }
+    if (USART_RX_STA & 0x8000)
+    {
+      UART1_rxBuffer[MSG_LEN] = '\n';
+      My_Jsonparse(UART1_rxBuffer);
 
-    printf("testing2!"); // print
-    printf("\r\n");      // manual new line
+      UART1_msg_ok = 0;
+      printf("px.val=%.2lf\xff\xff\xff\r\n", m1.speed.cur);
+      printf("py.val=%.2lf\xff\xff\xff\r\n", m2.speed.cur);
+      printf("vx.val=%.2lf\xff\xff\xff\r\n", m1.pos.cur);
+      printf("vy.val=%.2lf\xff\xff\xff\r\n", m2.pos.cur);
+      printf("tx.val=%.2lf\xff\xff\xff\r\n", m1.pos.input);
+      printf("ty.val=%.2lf\xff\xff\xff\r\n", m2.pos.input);
+      // printf("testing2!"); // print
+      // printf("\r\n");      // manual new line
+      switch (Mode) //������Ŀѡ����
+      {
+      case 1:
+        Mode_1();
+        break;
+      case 2:
+        Mode_2();
+        break;
+      case 3:
+        Mode_3();
+        break;
+      case 4:
+        Mode_4();
+        break;
+      case 5:
+        Mode_5();
+        break;
+      case 6:
+        Mode_6();
+        break;
+      case 7:
+        Mode_7();
+        break;
+      case 8:
+        Mode_8();
+        break;
+      default:
+        break;
+      }
+    }
+    char end[] = {0xff, 0xff, 0xff}; //������ͨ��Э��
+    uint16_t len;
+    uint16_t t;
+    uint16_t sel;
+    uint16_t num;
+    uint16_t i;
+    uint32_t times;
+
+    u16 len_uart;
+    if (USART2_RX_STA & 0x8000)
+    {
+      len = USART2_RX_STA & 0x3fff; //�õ��˴ν��յ������ݳ���
+      sel = USART2_RX_BUF[0];       //��ʶ��
+      num = USART2_RX_BUF[2] + USART2_RX_BUF[3] * 256;
+      if (sel == 0)
+      {
+        printf("n3.val=%d\xff\xff\xff", num);
+      }
+      else if (sel == 1)
+      {
+        printf("n4.val=%d\xff\xff\xff", num);
+      }
+      else if (sel == 2)
+      {
+        printf("n5.val=%d\xff\xff\xff", num);
+      }
+
+      else if (sel == 3)
+      {
+        LED0 = !LED0;
+        Mode = 1;
+      }
+      else if (sel == 4)
+      {
+        Mode = 2;
+      }
+      else if (sel == 5)
+      {
+        Mode = 3;
+      }
+      else if (sel == 6)
+      {
+        Mode = 4;
+      }
+      else if (sel == 7)
+      {
+        Mode = 5;
+      }
+      else if (sel == 8)
+      {
+        Mode = 6;
+      }
+      else if (sel == 9)
+      {
+        Mode = 7;
+      }
+      else if (sel == 'A')
+      {
+        Mode = 8;
+      }
+      //ģʽ��ѡ���ĸ�Ŀ���0~3=A~D
+      else if (sel == 'B')
+      {
+        point_choose[3] = num % 10;
+        num = num / 10;
+        point_choose[2] = num % 10;
+        num = num / 10;
+        point_choose[1] = num % 10;
+        num = num / 10;
+        point_choose[0] = num % 10;
+      }
+      //һ������
+      else if (sel == 'C')
+      {
+        Start = 1;
+      }
+      //һ��ֹͣ
+      else if (sel == 'D')
+      {
+        Start = 0;
+      }
+
+      USART2_RX_STA = 0;
+    }
   }
   /* USER CODE END WHILE */
 
