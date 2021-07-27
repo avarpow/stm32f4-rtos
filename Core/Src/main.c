@@ -81,9 +81,9 @@ uint8_t m_Uart2_RcvByte;
 uint16_t USART2_RX_STA;
 uint8_t USART2_RX_BUF[USART_REC_LEN];
 
-int Start;               //一键启动
-int point_choose[4];     //模式六选择点
-double target_pos[9][2]; //储存的九个目标点的位置
+int Start;               //�??????键启�??????
+int point_choose[4];     //模式六�?�择�??????
+double target_pos[9][2]; //储存的九个目标点的位�??????
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -110,9 +110,9 @@ uint8_t UART1_msg_ok = 0;
 int __io_putchar(int ch)
 {
   //Specific which serial port can change USART1 to other serial ports
-  while ((USART1->SR & 0X40) == 0)
+  while ((USART2->SR & 0X40) == 0)
     ; //Cycle sending until the sending is completed
-  USART1->DR = (uint8_t)ch;
+  USART2->DR = (uint8_t)ch;
   return ch;
 }
 
@@ -203,6 +203,7 @@ void UART2_ReceiveByte(uint8_t Res)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
 {
   HAL_StatusTypeDef status;
+
   if (UartHandle->Instance == USART1)
   {
     UART1_ReceiveByte(m_Uart1_RcvByte);
@@ -215,6 +216,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
   if (UartHandle->Instance == USART2)
   {
     UART2_ReceiveByte(m_Uart2_RcvByte);
+    // HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+
     status = HAL_UART_Receive_IT(&huart2, &m_Uart2_RcvByte, 1);
     // if (HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, MSG_LEN) != HAL_OK)
     // {
@@ -350,6 +353,9 @@ int main(void)
              50, 250, 0, 180, htim3, TIM_CHANNEL_4);
   // int32_t Mode = 0;
   // printf("START!"); // print
+  // int32_t CH1_DC = 0, CH2_DC = 0;
+  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 1550);
+  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 1450);
   while (1)
   {
     // for (int i = 0; i < 180; i++)
@@ -364,11 +370,20 @@ int main(void)
     // }
     // while (CH1_DC < 300)
     // {
-    //   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, CH1_DC);
-    //   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, CH2_DC);
     //   CH1_DC += 10;
     //   CH2_DC += 10;
-
+    //   // __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, CH1_DC + 1450);
+    //   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, CH2_DC + 1450);
+    //   HAL_Delay(10);
+    // }
+    // while (CH1_DC > 0)
+    // {
+    //   // __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, CH1_DC + 1450);
+    //   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, CH2_DC + 1450);
+    //   CH1_DC -= 10;
+    //   CH2_DC -= 10;
+    //   HAL_Delay(10);
+    // }
     // }
     // while (CH1_DC > 0)
     // {
@@ -378,6 +393,8 @@ int main(void)
     //   CH2_DC -= 10;
     //   HAL_Delay(100);
     // }
+    // HAL_UART_Transmit(&huart2, "LIVE\n", 2, 1000);
+
     if (USART1_RX_STA & 0x8000)
     {
       UART1_rxBuffer[MSG_LEN] = '\n';
@@ -436,17 +453,21 @@ int main(void)
       len = USART2_RX_STA & 0x3fff; //�õ��˴ν��յ������ݳ���
       sel = USART2_RX_BUF[0];       //��ʶ��
       num = USART2_RX_BUF[2] + USART2_RX_BUF[3] * 256;
+      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
       if (sel == 0)
       {
         printf("n3.val=%d\xff\xff\xff", num);
+        fflush(stdout);
       }
       else if (sel == 1)
       {
         printf("n4.val=%d\xff\xff\xff", num);
+        fflush(stdout);
       }
       else if (sel == 2)
       {
         printf("n5.val=%d\xff\xff\xff", num);
+        fflush(stdout);
       }
 
       else if (sel == 3)
@@ -482,7 +503,7 @@ int main(void)
       {
         Mode = 8;
       }
-      //ģʽ��ѡ���ĸ�Ŀ���0~3=A~D
+      //ģʽ��ѡ���ĸ�Ŀ���??????0~3=A~D
       else if (sel == 'B')
       {
         point_choose[3] = num % 10;
@@ -646,9 +667,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 1000;
+  htim3.Init.Prescaler = 101;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 2000;
+  htim3.Init.Period = 20000;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -670,15 +691,14 @@ static void MX_TIM3_Init(void)
   {
     Error_Handler();
   }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.OCMode = TIM_OCMODE_PWM2;
   sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
   }
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
     Error_Handler();
