@@ -81,6 +81,9 @@ uint8_t m_Uart2_RcvByte;
 uint16_t USART2_RX_STA;
 uint8_t USART2_RX_BUF[USART_REC_LEN];
 
+int Start;               //一键启动
+int point_choose[4];     //模式六选择点
+double target_pos[9][2]; //储存的九个目标点的位置
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -129,9 +132,16 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
   /* Prevent unused argument(s) compilation warning */
   if (huart->ErrorCode & HAL_UART_ERROR_ORE)
   {
-    __HAL_UART_CLEAR_OREFLAG(huart);
-    // printf("%d errorerrorerror\n\n\n\n\n\n", huart->ErrorCode);
-    HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, MSG_LEN);
+    if (huart->Instance == USART1)
+    {
+      __HAL_UART_CLEAR_OREFLAG(huart);
+      HAL_UART_Receive_IT(&huart1, &m_Uart1_RcvByte, 1);
+    }
+    if (huart->Instance == USART2)
+    {
+      __HAL_UART_CLEAR_OREFLAG(huart);
+      HAL_UART_Receive_IT(&huart2, &m_Uart2_RcvByte, 1);
+    }
   }
   /* NOTE : This function should not be modified, when the callback is needed,
             the HAL_UART_ErrorCallback can be implemented in the user file.
@@ -156,7 +166,7 @@ void UART1_ReceiveByte(uint8_t Res)
         USART1_RX_STA |= 0x4000;
       else
       {
-        USART_RX_BUF[USART1_RX_STA & 0X3FFF] = Res;
+        USART1_RX_BUF[USART1_RX_STA & 0X3FFF] = Res;
         USART1_RX_STA++;
         if (USART1_RX_STA > (USART_REC_LEN - 1))
           USART1_RX_STA = 0; //???????????,??????????
@@ -164,7 +174,7 @@ void UART1_ReceiveByte(uint8_t Res)
     }
   }
 }
-void UART1_ReceiveByte(uint8_t Res)
+void UART2_ReceiveByte(uint8_t Res)
 {
 
   if ((USART2_RX_STA & 0x8000) == 0)
@@ -182,7 +192,7 @@ void UART1_ReceiveByte(uint8_t Res)
         USART2_RX_STA |= 0x4000;
       else
       {
-        USART_RX_BUF[USART2_RX_STA & 0X3FFF] = Res;
+        USART2_RX_BUF[USART2_RX_STA & 0X3FFF] = Res;
         USART2_RX_STA++;
         if (USART2_RX_STA > (USART_REC_LEN - 1))
           USART2_RX_STA = 0; //???????????,??????????
@@ -214,7 +224,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
 }
 void uart_print(UART_HandleTypeDef *uart, uint8_t *s, int len)
 {
-  if (HAL_UART_Transmit(&uart, s, len * sizeof(*s), 5000) != HAL_OK)
+  if (HAL_UART_Transmit(uart, s, len * sizeof(*s), 5000) != HAL_OK)
   {
     Error_Handler();
   }
@@ -321,7 +331,8 @@ int main(void)
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
 
-  HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 12);
+  HAL_UART_Receive_IT(&huart1, &m_Uart1_RcvByte, 1);
+  HAL_UART_Receive_IT(&huart2, &m_Uart2_RcvByte, 1);
 
   /* USER CODE END 2 */
 
@@ -338,7 +349,7 @@ int main(void)
              0, 0, 0, 0,
              50, 250, 0, 180, htim3, TIM_CHANNEL_4);
   // int32_t Mode = 0;
-  printf("START!"); // print
+  // printf("START!"); // print
   while (1)
   {
     // for (int i = 0; i < 180; i++)
@@ -367,18 +378,18 @@ int main(void)
     //   CH2_DC -= 10;
     //   HAL_Delay(100);
     // }
-    if (USART_RX_STA & 0x8000)
+    if (USART1_RX_STA & 0x8000)
     {
       UART1_rxBuffer[MSG_LEN] = '\n';
       My_Jsonparse(UART1_rxBuffer);
 
       UART1_msg_ok = 0;
-      printf("px.val=%.2lf\xff\xff\xff\r\n", m1.speed.cur);
-      printf("py.val=%.2lf\xff\xff\xff\r\n", m2.speed.cur);
-      printf("vx.val=%.2lf\xff\xff\xff\r\n", m1.pos.cur);
-      printf("vy.val=%.2lf\xff\xff\xff\r\n", m2.pos.cur);
-      printf("tx.val=%.2lf\xff\xff\xff\r\n", m1.pos.input);
-      printf("ty.val=%.2lf\xff\xff\xff\r\n", m2.pos.input);
+      // printf("px.val=%.2lf\xff\xff\xff\r\n", m1.speed.cur);
+      // printf("py.val=%.2lf\xff\xff\xff\r\n", m2.speed.cur);
+      // printf("vx.val=%.2lf\xff\xff\xff\r\n", m1.pos.cur);
+      // printf("vy.val=%.2lf\xff\xff\xff\r\n", m2.pos.cur);
+      // printf("tx.val=%.2lf\xff\xff\xff\r\n", m1.pos.input);
+      // printf("ty.val=%.2lf\xff\xff\xff\r\n", m2.pos.input);
       // printf("testing2!"); // print
       // printf("\r\n");      // manual new line
       switch (Mode) //������Ŀѡ����
@@ -419,7 +430,7 @@ int main(void)
     uint16_t i;
     uint32_t times;
 
-    u16 len_uart;
+    uint16_t len_uart;
     if (USART2_RX_STA & 0x8000)
     {
       len = USART2_RX_STA & 0x3fff; //�õ��˴ν��յ������ݳ���
@@ -440,7 +451,7 @@ int main(void)
 
       else if (sel == 3)
       {
-        LED0 = !LED0;
+        // LED0 = !LED0;
         Mode = 1;
       }
       else if (sel == 4)

@@ -1,262 +1,156 @@
 /*-------------------------------------------------------------------------------------------
 
- Ó²¼þÆ½Ì¨:
- 			Ö÷¿ØÆ÷: STM32F103VET6 64K RAM 512K ROM
-			Çý¶¯Æ÷: LMD18200T 
-		    µçÔ´:   DC +12V
+ ç¡¬ä»¶å¹³å°:
+ 			ä¸»æŽ§å™¨: STM32F103VET6 64K RAM 512K ROM
+			é©±åŠ¨å™¨: LMD18200T 
+		    ç”µæº:   DC +12V
 
- Èí¼þÆ½Ì¨:
- 			¿ª·¢»·¾³: RealView MDK-ARM uVision4.10
-			C±àÒëÆ÷ : ARMCC
-			ASM±àÒëÆ÷:ARMASM
-			Á¬½ÓÆ÷:   ARMLINK
-			µ×²ãÇý¶¯: ¸÷¸öÍâÉèÇý¶¯³ÌÐò       
+ è½¯ä»¶å¹³å°:
+ 			å¼€å‘çŽ¯å¢ƒ: RealView MDK-ARM uVision4.10
+			Cç¼–è¯‘å™¨ : ARMCC
+			ASMç¼–è¯‘å™¨:ARMASM
+			è¿žæŽ¥å™¨:   ARMLINK
+			åº•å±‚é©±åŠ¨: å„ä¸ªå¤–è®¾é©±åŠ¨ç¨‹åº       
 
 
 -------------------------------------------------------------------------------------------*/
-#include "motor_control.h"
-#include "motor_pwm.h"
-#include "motor_pid.h"
-#include "stdlib.h"
-#include "stdio.h"
-#include "delay.h"
-#include "math.h"
-#include "Upload.h"
-/*------------------------------------------
- 				È«¾Ö±äÁ¿				°üÀ¨speedºÍangleÁ½¸ö±äÁ¿
-------------------------------------------*/
-M1TypeDef M1_spe;
-M2TypeDef M2_spe;
-M1TypeDef M1_angle;
-M2TypeDef M2_angle;
-
-extern PIDTypdDef M1PID_spe;
-extern PIDTypdDef M2PID_spe;
-extern PIDTypdDef M1PID_angle;
-extern PIDTypdDef M2PID_angle;
-
-extern int Start;               //Ò»¼üÆô¶¯
-extern int point_choose[4];     //Ä£Ê½ÁùÑ¡Ôñµã
-extern double target_pos[9][2]; //´¢´æµÄ¾Å¸öÄ¿±êµãµÄÎ»ÖÃ
+#include "mode.h"
 
 /*------------------------------------------
- º¯Êý¹¦ÄÜ:¿ØÖÆÆ÷Èí¼þ¸´Î»
- º¯ÊýËµÃ÷:Ç¿ÖÆ¸´Î»			
+ 				å…¨å±€å˜é‡				åŒ…æ‹¬speedå’Œangleä¸¤ä¸ªå˜é‡
 ------------------------------------------*/
-void MCU_Reset(void)
-{
-    __set_FAULTMASK(1); // ¹Ø±ÕËùÓÐÖÐ¶Ï
-    NVIC_SystemReset(); // ¸´Î»
-}
+extern motor m1, m2;
+
+extern int Start;               //ä¸€é”®å¯åŠ¨
+extern int point_choose[4];     //æ¨¡å¼å…­é€‰æ‹©ç‚¹
+extern double target_pos[9][2]; //å‚¨å­˜çš„ä¹ä¸ªç›®æ ‡ç‚¹çš„ä½ç½®
+
 /*------------------------------------------
- º¯Êý¹¦ÄÜ:³õÊ¼»¯M1½á¹¹Ìå²ÎÊý
- º¯ÊýËµÃ÷:			
+ å‡½æ•°åŠŸèƒ½:æŽ§åˆ¶å™¨è½¯ä»¶å¤ä½
+ å‡½æ•°è¯´æ˜Ž:å¼ºåˆ¶å¤ä½			
 ------------------------------------------*/
-void M1TypeDef_Init(void)
-{
-    M1_spe.CurPos = 0.0;
-    M1_spe.PrevPos = 0.0;
-    M1_spe.CurAcc = 0.0;
-    M1_spe.PrevSpeed = 0.0;
-    M1_spe.Offset = 0.0;   //ÔÊÐíÆ«²îÁ¿
-    M1_spe.CurSpeed = 0.0; //µ±Ç°ËÙ¶ÈÊ¸Á¿
-    M1_spe.PWM = 0;        //PWM
-    M1_angle.CurPos = 0.0;
-    M1_angle.PrevPos = 0.0;
-    M1_angle.CurAcc = 0.0;
-    M1_angle.PrevSpeed = 0.0;
-    M1_angle.Offset = 0.0;   //ÔÊÐíÆ«²îÁ¿
-    M1_angle.CurSpeed = 0.0; //µ±Ç°ËÙ¶ÈÊ¸Á¿
-    M1_angle.PWM = 0;        //PWM
-}
+// void MCU_Reset(void)
+// {
+//     __set_FAULTMASK(1); // å…³é—­æ‰€æœ‰ä¸­æ–­
+//     NVIC_SystemReset(); // å¤ä½
+// }
+
 /*------------------------------------------
- º¯Êý¹¦ÄÜ:³õÊ¼»¯M2½á¹¹Ìå²ÎÊý
- º¯ÊýËµÃ÷:			
-------------------------------------------*/
-void M2TypeDef_Init(void)
-{
-    M2_spe.CurPos = 0.0;
-    M2_spe.PrevPos = 0.0;
-    M2_spe.CurAcc = 0.0;
-    M2_spe.PrevSpeed = 0.0;
-    M2_spe.Offset = 0.0;   //ÔÊÐíÆ«²îÁ¿
-    M2_spe.CurSpeed = 0.0; //µ±Ç°ËÙ¶ÈÊ¸Á¿
-    M2_spe.PWM = 0;        //PWM
-    M2_angle.CurPos = 0.0;
-    M2_angle.PrevPos = 0.0;
-    M2_angle.CurAcc = 0.0;
-    M2_angle.PrevSpeed = 0.0;
-    M2_angle.Offset = 0.0;   //ÔÊÐíÆ«²îÁ¿
-    M2_angle.CurSpeed = 0.0; //µ±Ç°ËÙ¶ÈÊ¸Á¿
-    M2_angle.PWM = 0;        //PWM
-}
-/*------------------------------------------
- ¸÷Ä£Ê½º¯Êý:
+ å„æ¨¡å¼å‡½æ•°:
 
 ------------------------------------------*/
 void Mode_1(void)
 {
-    float set_x; //Ä¿±êµã×ø±ê(cm)
+    float set_x; //ç›®æ ‡ç‚¹åæ ‡(cm)
     float set_y;
-    if (Start == 1) //Æô¶¯
+    if (Start == 1) //å¯åŠ¨
     {
         set_x = 12.5;
         set_y = 12.5;
     }
-    else //Í£Ö¹
+    else //åœæ­¢
     {
         set_x = 22.5;
         set_y = 22.5;
     }
 
-    /////////////////////////////////////////////Î»ÖÃ»·PID///////////////////////////////
-    M1PID_spe.SetPoint = set_x;
-    M1PID_spe.Proportion = 50;
-    M1PID_spe.Integral = 0;
-    M1PID_spe.Derivative = 800;
+    /////////////////////////////////////////////ä½ç½®çŽ¯PID///////////////////////////////
+    m1.pos.input = set_x;
+    pid_set(&m1.pos, 0, 0, 0, 0);
+    pid_cacl(&m1.pos);
 
-    M2PID_spe.SetPoint = set_y;
-    M2PID_spe.Proportion = 50;
-    M2PID_spe.Integral = 0;
-    M2PID_spe.Derivative = 800;
+    m2.pos.input = set_x;
+    pid_set(&m2.pos, 50, 0, 800, 10);
+    pid_cacl(&m2.pos);
 
-    M1_spe.PWM = PID_M1_spe_PosLocCalc(M1_spe.CurPos); //X·½ÏòPID¼ÆËã
-    M2_spe.PWM = PID_M2_spe_PosLocCalc(M2_spe.CurPos); //Y·½ÏòPID¼ÆËã
+    //////////////////////////////////////////////é€Ÿåº¦çŽ¯///////////////////////////////////////////
+    // m1.speed.input = m1.pos.output;
+    m1.speed.input = 0;
+    pid_set(&m2.speed, 5, 0, 0, 10);
+    pid_cacl(&m1.speed);
 
-    if (M1_spe.PWM > POWER_MAX_spe)
-        M1_spe.PWM = POWER_MAX_spe; //Êä³öÏÞ·ù
-    if (M1_spe.PWM < -POWER_MAX_spe)
-        M1_spe.PWM = -POWER_MAX_spe;
-    if (M2_spe.PWM > POWER_MAX_spe)
-        M2_spe.PWM = POWER_MAX_spe;
-    if (M2_spe.PWM < -POWER_MAX_spe)
-        M2_spe.PWM = -POWER_MAX_spe;
+    // m2.speed.input = m2.pos.output;
+    m2.speed.input = 0;
+    pid_set(&m2.speed, 5, 0, 0, 10);
+    pid_cacl(&m2.speed);
 
-    //////////////////////////////////////////////ËÙ¶È»·///////////////////////////////////////////
-    M1PID_angle.SetPoint = M1_spe.PWM;
-    M1PID_angle.Proportion = 50;
-    M1PID_angle.Integral = 0;
-    M1PID_angle.Derivative = 800;
-
-    M2PID_angle.SetPoint = M2_spe.PWM;
-    M2PID_angle.Proportion = 50;
-    M2PID_angle.Integral = 0;
-    M2PID_angle.Derivative = 800;
-
-    M1_angle.PWM = PID_M1_angle_PosLocCalc(M1_angle.CurPos); //X·½ÏòPID¼ÆËã
-    M2_angle.PWM = PID_M2_angle_PosLocCalc(M2_angle.CurPos); //Y·½ÏòPID¼ÆËã
-
-    if (M1_angle.PWM > POWER_MAX_spe)
-        M1_angle.PWM = POWER_MAX_angle; //Êä³öÏÞ·ù
-    if (M1_angle.PWM < -POWER_MAX_spe)
-        M1_angle.PWM = -POWER_MAX_angle;
-    if (M2_angle.PWM > POWER_MAX_spe)
-        M2_angle.PWM = POWER_MAX_angle;
-    if (M2_angle.PWM < -POWER_MAX_spe)
-        M2_angle.PWM = -POWER_MAX_angle;
-
-    MotorMove(M1_angle.PWM + 1550, M2_angle.PWM + 1450);
+    //////////////////////////////////////////////è¾“å‡º///////////////////////////////////////////
+    motor_move_angle(&m1, m1.speed.output);
+    motor_move_angle(&m2, m2.speed.output);
 }
 
-u32 cout2 = 0; //¼ÆÊ±±äÁ¿
+uint32_t cout2 = 0; //è®¡æ—¶å˜é‡
 
 void Mode_2(void)
 {
-    float set_x; //Ä¿±êµã×ø±ê(cm)
+    float set_x; //ç›®æ ‡ç‚¹åæ ‡(cm)
     float set_y;
     if (Start == 1)
     {
-        if (cout2 < 100) //ÏÈÔÚÇøÓò1Í£2s
+        if (cout2 < 100) //å…ˆåœ¨åŒºåŸŸ1åœ2s
         {
-            set_x = 12.5; //Ä¿±êµã×ø±ê(cm)
+            set_x = 12.5; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = 12.5;
             ++cout2;
         }
-        else //ÔÙÈ¥ÇøÓò5
+        else //å†åŽ»åŒºåŸŸ5
         {
-            set_x = 25; //Ä¿±êµã×ø±ê(cm)
+            set_x = 25; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = 25;
         }
     }
     else
     {
-        set_x = 0; //Ä¿±êµã×ø±ê(cm)
+        set_x = 0; //ç›®æ ‡ç‚¹åæ ‡(cm)
         set_y = 0;
         cout2 = 0;
     }
-    /////////////////////////////////////////////Î»ÖÃ»·PID///////////////////////////////
+    /////////////////////////////////////////////ä½ç½®çŽ¯PID///////////////////////////////
+    m1.pos.input = set_x;
+    pid_set(&m1.pos, 50, 0, 800, 10);
+    pid_cacl(&m1.pos);
 
-    M1PID_spe.SetPoint = set_x;
-    M1PID_spe.Proportion = 50;
-    M1PID_spe.Integral = 0;
-    M1PID_spe.Derivative = 800;
+    m2.pos.input = set_x;
+    pid_set(&m2.pos, 50, 0, 800, 10);
+    pid_cacl(&m2.pos);
 
-    M2PID_spe.SetPoint = set_y;
-    M2PID_spe.Proportion = 50;
-    M2PID_spe.Integral = 0;
-    M2PID_spe.Derivative = 800;
+    //////////////////////////////////////////////é€Ÿåº¦çŽ¯///////////////////////////////////////////
+    m1.speed.input = set_x;
+    pid_set(&m2.speed, 50, 0, 800, 10);
+    pid_cacl(&m1.speed);
 
-    M1_spe.PWM = PID_M1_spe_PosLocCalc(M1_spe.CurPos); //X·½ÏòPID¼ÆËã
-    M2_spe.PWM = PID_M2_spe_PosLocCalc(M2_spe.CurPos); //Y·½ÏòPID¼ÆËã
+    m2.speed.input = set_x;
+    pid_set(&m2.speed, 50, 0, 800, 10);
+    pid_cacl(&m2.speed);
 
-    if (M1_spe.PWM > POWER_MAX_spe)
-        M1_spe.PWM = POWER_MAX_spe; //Êä³öÏÞ·ù
-    if (M1_spe.PWM < -POWER_MAX_spe)
-        M1_spe.PWM = -POWER_MAX_spe;
-    if (M2_spe.PWM > POWER_MAX_spe)
-        M2_spe.PWM = POWER_MAX_spe;
-    if (M2_spe.PWM < -POWER_MAX_spe)
-        M2_spe.PWM = -POWER_MAX_spe;
-
-    //////////////////////////////////////////////ËÙ¶È»·///////////////////////////////////////////
-    M1PID_angle.SetPoint = M1_spe.PWM;
-    M1PID_angle.Proportion = 50;
-    M1PID_angle.Integral = 0;
-    M1PID_angle.Derivative = 800;
-
-    M2PID_angle.SetPoint = M2_spe.PWM;
-    M2PID_angle.Proportion = 50;
-    M2PID_angle.Integral = 0;
-    M2PID_angle.Derivative = 800;
-
-    M1_angle.PWM = PID_M1_angle_PosLocCalc(M1_angle.CurPos); //X·½ÏòPID¼ÆËã
-    M2_angle.PWM = PID_M2_angle_PosLocCalc(M2_angle.CurPos); //Y·½ÏòPID¼ÆËã
-
-    if (M1_angle.PWM > POWER_MAX_spe)
-        M1_angle.PWM = POWER_MAX_angle; //Êä³öÏÞ·ù
-    if (M1_angle.PWM < -POWER_MAX_spe)
-        M1_angle.PWM = -POWER_MAX_angle;
-    if (M2_angle.PWM > POWER_MAX_spe)
-        M2_angle.PWM = POWER_MAX_angle;
-    if (M2_angle.PWM < -POWER_MAX_spe)
-        M2_angle.PWM = -POWER_MAX_angle;
-
-    MotorMove(M1_angle.PWM, M2_angle.PWM);
+    //////////////////////////////////////////////è¾“å‡º///////////////////////////////////////////
+    motor_move_angle(&m1, m1.speed.output);
+    motor_move_angle(&m2, m2.speed.output);
 }
 
-u32 cout3 = 0;
+uint32_t cout3 = 0;
 void Mode_3(void)
 {
-    float set_x; //Ä¿±êµã×ø±ê(cm)
+    float set_x; //ç›®æ ‡ç‚¹åæ ‡(cm)
     float set_y;
     if (Start == 1)
     {
-        /////////////////////////////////////////////Î»ÖÃ»·PID///////////////////////////////
-        if (cout3 < 100) //ÏÈÔÚÇøÓò1Í£2s
+        /////////////////////////////////////////////ä½ç½®çŽ¯PID///////////////////////////////
+        if (cout3 < 100) //å…ˆåœ¨åŒºåŸŸ1åœ2s
         {
-            set_x = 12.5; //Ä¿±êµã×ø±ê(cm)
+            set_x = 12.5; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = 12.5;
             ++cout3;
         }
-        else if (cout3 < 300) //ÔÙÈ¥ÇøÓò4Í£4s
+        else if (cout3 < 300) //å†åŽ»åŒºåŸŸ4åœ4s
         {
-            set_x = 12.5; //Ä¿±êµã×ø±ê(cm)
+            set_x = 12.5; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = 25;
             ++cout3;
         }
         else
         {
-            set_x = 25; //Ä¿±êµã×ø±ê(cm)
+            set_x = 25; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = 25;
         }
     }
@@ -267,71 +161,46 @@ void Mode_3(void)
         cout3 = 0;
     }
 
-    M1PID_spe.SetPoint = set_x;
-    M1PID_spe.Proportion = 50;
-    M1PID_spe.Integral = 0;
-    M1PID_spe.Derivative = 800;
+    /////////////////////////////////////////////ä½ç½®çŽ¯PID///////////////////////////////
+    m1.pos.input = set_x;
+    pid_set(&m1.pos, 50, 0, 800, 10);
+    pid_cacl(&m1.pos);
 
-    M2PID_spe.SetPoint = set_y;
-    M2PID_spe.Proportion = 50;
-    M2PID_spe.Integral = 0;
-    M2PID_spe.Derivative = 800;
+    m2.pos.input = set_x;
+    pid_set(&m2.pos, 50, 0, 800, 10);
+    pid_cacl(&m2.pos);
 
-    M1_spe.PWM = PID_M1_spe_PosLocCalc(M1_spe.CurPos); //X·½ÏòPID¼ÆËã
-    M2_spe.PWM = PID_M2_spe_PosLocCalc(M2_spe.CurPos); //Y·½ÏòPID¼ÆËã
+    //////////////////////////////////////////////é€Ÿåº¦çŽ¯///////////////////////////////////////////
+    m1.speed.input = set_x;
+    pid_set(&m2.speed, 50, 0, 800, 10);
+    pid_cacl(&m1.speed);
 
-    if (M1_spe.PWM > POWER_MAX_spe)
-        M1_spe.PWM = POWER_MAX_spe; //Êä³öÏÞ·ù
-    if (M1_spe.PWM < -POWER_MAX_spe)
-        M1_spe.PWM = -POWER_MAX_spe;
-    if (M2_spe.PWM > POWER_MAX_spe)
-        M2_spe.PWM = POWER_MAX_spe;
-    if (M2_spe.PWM < -POWER_MAX_spe)
-        M2_spe.PWM = -POWER_MAX_spe;
+    m2.speed.input = set_x;
+    pid_set(&m2.speed, 50, 0, 800, 10);
+    pid_cacl(&m2.speed);
 
-    //////////////////////////////////////////////ËÙ¶È»·///////////////////////////////////////////
-    M1PID_angle.SetPoint = M1_spe.PWM;
-    M1PID_angle.Proportion = 50;
-    M1PID_angle.Integral = 0;
-    M1PID_angle.Derivative = 800;
-
-    M2PID_angle.SetPoint = M2_spe.PWM;
-    M2PID_angle.Proportion = 50;
-    M2PID_angle.Integral = 0;
-    M2PID_angle.Derivative = 800;
-
-    M1_angle.PWM = PID_M1_angle_PosLocCalc(M1_angle.CurPos); //X·½ÏòPID¼ÆËã
-    M2_angle.PWM = PID_M2_angle_PosLocCalc(M2_angle.CurPos); //Y·½ÏòPID¼ÆËã
-
-    if (M1_angle.PWM > POWER_MAX_spe)
-        M1_angle.PWM = POWER_MAX_angle; //Êä³öÏÞ·ù
-    if (M1_angle.PWM < -POWER_MAX_spe)
-        M1_angle.PWM = -POWER_MAX_angle;
-    if (M2_angle.PWM > POWER_MAX_spe)
-        M2_angle.PWM = POWER_MAX_angle;
-    if (M2_angle.PWM < -POWER_MAX_spe)
-        M2_angle.PWM = -POWER_MAX_angle;
-
-    MotorMove(M1_angle.PWM, M2_angle.PWM);
+    //////////////////////////////////////////////è¾“å‡º///////////////////////////////////////////
+    motor_move_angle(&m1, m1.speed.output);
+    motor_move_angle(&m2, m2.speed.output);
 }
 
-u32 cout4 = 0;
+uint32_t cout4 = 0;
 void Mode_4(void)
 {
-    float set_x; //Ä¿±êµã×ø±ê(cm)
+    float set_x; //ç›®æ ‡ç‚¹åæ ‡(cm)
     float set_y;
     if (Start == 1)
     {
-        /////////////////////////////////////////////Î»ÖÃ»·PID///////////////////////////////
-        if (cout4 < 100) //ÏÈÔÚÇøÓò1Í£2s
+        /////////////////////////////////////////////ä½ç½®çŽ¯PID///////////////////////////////
+        if (cout4 < 100) //å…ˆåœ¨åŒºåŸŸ1åœ2s
         {
-            set_x = 12.5; //Ä¿±êµã×ø±ê(cm)
+            set_x = 12.5; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = 12.5;
             ++cout4;
         }
-        else //ÔÙÈ¥ÇøÓò9
+        else //å†åŽ»åŒºåŸŸ9
         {
-            set_x = 37.5; //Ä¿±êµã×ø±ê(cm)
+            set_x = 37.5; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = 37.5;
         }
     }
@@ -342,84 +211,59 @@ void Mode_4(void)
         cout4 = 0;
     }
 
-    M1PID_spe.SetPoint = set_x;
-    M1PID_spe.Proportion = 50;
-    M1PID_spe.Integral = 0;
-    M1PID_spe.Derivative = 800;
+    /////////////////////////////////////////////ä½ç½®çŽ¯PID///////////////////////////////
+    m1.pos.input = set_x;
+    pid_set(&m1.pos, 50, 0, 800, 10);
+    pid_cacl(&m1.pos);
 
-    M2PID_spe.SetPoint = set_y;
-    M2PID_spe.Proportion = 50;
-    M2PID_spe.Integral = 0;
-    M2PID_spe.Derivative = 800;
+    m2.pos.input = set_x;
+    pid_set(&m2.pos, 50, 0, 800, 10);
+    pid_cacl(&m2.pos);
 
-    M1_spe.PWM = PID_M1_spe_PosLocCalc(M1_spe.CurPos); //X·½ÏòPID¼ÆËã
-    M2_spe.PWM = PID_M2_spe_PosLocCalc(M2_spe.CurPos); //Y·½ÏòPID¼ÆËã
+    //////////////////////////////////////////////é€Ÿåº¦çŽ¯///////////////////////////////////////////
+    m1.speed.input = set_x;
+    pid_set(&m2.speed, 50, 0, 800, 10);
+    pid_cacl(&m1.speed);
 
-    if (M1_spe.PWM > POWER_MAX_spe)
-        M1_spe.PWM = POWER_MAX_spe; //Êä³öÏÞ·ù
-    if (M1_spe.PWM < -POWER_MAX_spe)
-        M1_spe.PWM = -POWER_MAX_spe;
-    if (M2_spe.PWM > POWER_MAX_spe)
-        M2_spe.PWM = POWER_MAX_spe;
-    if (M2_spe.PWM < -POWER_MAX_spe)
-        M2_spe.PWM = -POWER_MAX_spe;
+    m2.speed.input = set_x;
+    pid_set(&m2.speed, 50, 0, 800, 10);
+    pid_cacl(&m2.speed);
 
-    //////////////////////////////////////////////ËÙ¶È»·///////////////////////////////////////////
-    M1PID_angle.SetPoint = M1_spe.PWM;
-    M1PID_angle.Proportion = 50;
-    M1PID_angle.Integral = 0;
-    M1PID_angle.Derivative = 800;
-
-    M2PID_angle.SetPoint = M2_spe.PWM;
-    M2PID_angle.Proportion = 50;
-    M2PID_angle.Integral = 0;
-    M2PID_angle.Derivative = 800;
-
-    M1_angle.PWM = PID_M1_angle_PosLocCalc(M1_angle.CurPos); //X·½ÏòPID¼ÆËã
-    M2_angle.PWM = PID_M2_angle_PosLocCalc(M2_angle.CurPos); //Y·½ÏòPID¼ÆËã
-
-    if (M1_angle.PWM > POWER_MAX_spe)
-        M1_angle.PWM = POWER_MAX_angle; //Êä³öÏÞ·ù
-    if (M1_angle.PWM < -POWER_MAX_spe)
-        M1_angle.PWM = -POWER_MAX_angle;
-    if (M2_angle.PWM > POWER_MAX_spe)
-        M2_angle.PWM = POWER_MAX_angle;
-    if (M2_angle.PWM < -POWER_MAX_spe)
-        M2_angle.PWM = -POWER_MAX_angle;
-
-    MotorMove(M1_angle.PWM, M2_angle.PWM);
+    //////////////////////////////////////////////è¾“å‡º///////////////////////////////////////////
+    motor_move_angle(&m1, m1.speed.output);
+    motor_move_angle(&m2, m2.speed.output);
 }
 
-u32 cout5 = 0;
+uint32_t cout5 = 0;
 void Mode_5(void)
 {
-    float set_x; //Ä¿±êµã×ø±ê(cm)
+    float set_x; //ç›®æ ‡ç‚¹åæ ‡(cm)
     float set_y;
     if (Start == 1)
     {
-        /////////////////////////////////////////////Î»ÖÃ»·PID///////////////////////////////
+        /////////////////////////////////////////////ä½ç½®çŽ¯PID///////////////////////////////
 
-        if (cout5 < 100) //ÏÈÔÚÇøÓò1Í£2s
+        if (cout5 < 100) //å…ˆåœ¨åŒºåŸŸ1åœ2s
         {
-            set_x = 12.5; //Ä¿±êµã×ø±ê(cm)
+            set_x = 12.5; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = 12.5;
             ++cout5;
         }
-        else if (cout5 < 300) //ÔÙÈ¥ÇøÓò2Í£4s
+        else if (cout5 < 300) //å†åŽ»åŒºåŸŸ2åœ4s
         {
-            set_x = 25; //Ä¿±êµã×ø±ê(cm)
+            set_x = 25; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = 12.5;
             ++cout5;
         }
-        else if (cout5 < 500) //ÔÙÈ¥ÇøÓò6Í£4s
+        else if (cout5 < 500) //å†åŽ»åŒºåŸŸ6åœ4s
         {
-            set_x = 37.5; //Ä¿±êµã×ø±ê(cm)
+            set_x = 37.5; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = 25;
             ++cout5;
         }
-        else //ÔÙÈ¥ÇøÓò9
+        else //å†åŽ»åŒºåŸŸ9
         {
-            set_x = 37.5; //Ä¿±êµã×ø±ê(cm)
+            set_x = 37.5; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = 37.5;
         }
     }
@@ -430,83 +274,58 @@ void Mode_5(void)
         cout5 = 0;
     }
 
-    M1PID_spe.SetPoint = set_x;
-    M1PID_spe.Proportion = 50;
-    M1PID_spe.Integral = 0;
-    M1PID_spe.Derivative = 800;
+    /////////////////////////////////////////////ä½ç½®çŽ¯PID///////////////////////////////
+    m1.pos.input = set_x;
+    pid_set(&m1.pos, 50, 0, 800, 10);
+    pid_cacl(&m1.pos);
 
-    M2PID_spe.SetPoint = set_y;
-    M2PID_spe.Proportion = 50;
-    M2PID_spe.Integral = 0;
-    M2PID_spe.Derivative = 800;
+    m2.pos.input = set_x;
+    pid_set(&m2.pos, 50, 0, 800, 10);
+    pid_cacl(&m2.pos);
 
-    M1_spe.PWM = PID_M1_spe_PosLocCalc(M1_spe.CurPos); //X·½ÏòPID¼ÆËã
-    M2_spe.PWM = PID_M2_spe_PosLocCalc(M2_spe.CurPos); //Y·½ÏòPID¼ÆËã
+    //////////////////////////////////////////////é€Ÿåº¦çŽ¯///////////////////////////////////////////
+    m1.speed.input = set_x;
+    pid_set(&m2.speed, 50, 0, 800, 10);
+    pid_cacl(&m1.speed);
 
-    if (M1_spe.PWM > POWER_MAX_spe)
-        M1_spe.PWM = POWER_MAX_spe; //Êä³öÏÞ·ù
-    if (M1_spe.PWM < -POWER_MAX_spe)
-        M1_spe.PWM = -POWER_MAX_spe;
-    if (M2_spe.PWM > POWER_MAX_spe)
-        M2_spe.PWM = POWER_MAX_spe;
-    if (M2_spe.PWM < -POWER_MAX_spe)
-        M2_spe.PWM = -POWER_MAX_spe;
+    m2.speed.input = set_x;
+    pid_set(&m2.speed, 50, 0, 800, 10);
+    pid_cacl(&m2.speed);
 
-    //////////////////////////////////////////////ËÙ¶È»·///////////////////////////////////////////
-    M1PID_angle.SetPoint = M1_spe.PWM;
-    M1PID_angle.Proportion = 50;
-    M1PID_angle.Integral = 0;
-    M1PID_angle.Derivative = 800;
-
-    M2PID_angle.SetPoint = M2_spe.PWM;
-    M2PID_angle.Proportion = 50;
-    M2PID_angle.Integral = 0;
-    M2PID_angle.Derivative = 800;
-
-    M1_angle.PWM = PID_M1_angle_PosLocCalc(M1_angle.CurPos); //X·½ÏòPID¼ÆËã
-    M2_angle.PWM = PID_M2_angle_PosLocCalc(M2_angle.CurPos); //Y·½ÏòPID¼ÆËã
-
-    if (M1_angle.PWM > POWER_MAX_spe)
-        M1_angle.PWM = POWER_MAX_angle; //Êä³öÏÞ·ù
-    if (M1_angle.PWM < -POWER_MAX_spe)
-        M1_angle.PWM = -POWER_MAX_angle;
-    if (M2_angle.PWM > POWER_MAX_spe)
-        M2_angle.PWM = POWER_MAX_angle;
-    if (M2_angle.PWM < -POWER_MAX_spe)
-        M2_angle.PWM = -POWER_MAX_angle;
-
-    MotorMove(M1_angle.PWM, M2_angle.PWM);
+    //////////////////////////////////////////////è¾“å‡º///////////////////////////////////////////
+    motor_move_angle(&m1, m1.speed.output);
+    motor_move_angle(&m2, m2.speed.output);
 }
 
-u32 cout6 = 0;
+uint32_t cout6 = 0;
 void Mode_6(void)
 {
-    float set_x; //Ä¿±êµã×ø±ê(cm)
+    float set_x; //ç›®æ ‡ç‚¹åæ ‡(cm)
     float set_y;
     if (Start == 1)
     {
-        /////////////////////////////////////////////Î»ÖÃ»·PID///////////////////////////////
-        if (cout6 < 100) //ÏÈÔÚÇøÓò1Í£2s
+        /////////////////////////////////////////////ä½ç½®çŽ¯PID///////////////////////////////
+        if (cout6 < 100) //å…ˆåœ¨åŒºåŸŸ1åœ2s
         {
-            set_x = target_pos[point_choose[0]][0]; //Ä¿±êµã×ø±ê(cm)
+            set_x = target_pos[point_choose[0]][0]; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = target_pos[point_choose[0]][1];
             ++cout6;
         }
-        else if (cout6 < 300) //ÔÙÈ¥ÇøÓò2Í£4s
+        else if (cout6 < 300) //å†åŽ»åŒºåŸŸ2åœ4s
         {
-            set_x = target_pos[point_choose[1]][0]; //Ä¿±êµã×ø±ê(cm)
+            set_x = target_pos[point_choose[1]][0]; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = target_pos[point_choose[1]][1];
             ++cout6;
         }
-        else if (cout6 < 500) //ÔÙÈ¥ÇøÓò6Í£4s
+        else if (cout6 < 500) //å†åŽ»åŒºåŸŸ6åœ4s
         {
-            set_x = target_pos[point_choose[2]][0]; //Ä¿±êµã×ø±ê(cm)
+            set_x = target_pos[point_choose[2]][0]; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = target_pos[point_choose[2]][1];
             ++cout6;
         }
-        else //ÔÙÈ¥ÇøÓò9
+        else //å†åŽ»åŒºåŸŸ9
         {
-            set_x = target_pos[point_choose[3]][0]; //Ä¿±êµã×ø±ê(cm)
+            set_x = target_pos[point_choose[3]][0]; //ç›®æ ‡ç‚¹åæ ‡(cm)
             set_y = target_pos[point_choose[3]][1];
         }
     }
@@ -517,81 +336,56 @@ void Mode_6(void)
         cout6 = 0;
     }
 
-    M1PID_spe.SetPoint = set_x;
-    M1PID_spe.Proportion = 50;
-    M1PID_spe.Integral = 0;
-    M1PID_spe.Derivative = 800;
+    /////////////////////////////////////////////ä½ç½®çŽ¯PID///////////////////////////////
+    m1.pos.input = set_x;
+    pid_set(&m1.pos, 50, 0, 800, 10);
+    pid_cacl(&m1.pos);
 
-    M2PID_spe.SetPoint = set_y;
-    M2PID_spe.Proportion = 50;
-    M2PID_spe.Integral = 0;
-    M2PID_spe.Derivative = 800;
+    m2.pos.input = set_x;
+    pid_set(&m2.pos, 50, 0, 800, 10);
+    pid_cacl(&m2.pos);
 
-    M1_spe.PWM = PID_M1_spe_PosLocCalc(M1_spe.CurPos); //X·½ÏòPID¼ÆËã
-    M2_spe.PWM = PID_M2_spe_PosLocCalc(M2_spe.CurPos); //Y·½ÏòPID¼ÆËã
+    //////////////////////////////////////////////é€Ÿåº¦çŽ¯///////////////////////////////////////////
+    m1.speed.input = set_x;
+    pid_set(&m2.speed, 50, 0, 800, 10);
+    pid_cacl(&m1.speed);
 
-    if (M1_spe.PWM > POWER_MAX_spe)
-        M1_spe.PWM = POWER_MAX_spe; //Êä³öÏÞ·ù
-    if (M1_spe.PWM < -POWER_MAX_spe)
-        M1_spe.PWM = -POWER_MAX_spe;
-    if (M2_spe.PWM > POWER_MAX_spe)
-        M2_spe.PWM = POWER_MAX_spe;
-    if (M2_spe.PWM < -POWER_MAX_spe)
-        M2_spe.PWM = -POWER_MAX_spe;
+    m2.speed.input = set_x;
+    pid_set(&m2.speed, 50, 0, 800, 10);
+    pid_cacl(&m2.speed);
 
-    //////////////////////////////////////////////ËÙ¶È»·///////////////////////////////////////////
-    M1PID_angle.SetPoint = M1_spe.PWM;
-    M1PID_angle.Proportion = 50;
-    M1PID_angle.Integral = 0;
-    M1PID_angle.Derivative = 800;
-
-    M2PID_angle.SetPoint = M2_spe.PWM;
-    M2PID_angle.Proportion = 50;
-    M2PID_angle.Integral = 0;
-    M2PID_angle.Derivative = 800;
-
-    M1_angle.PWM = PID_M1_angle_PosLocCalc(M1_angle.CurPos); //X·½ÏòPID¼ÆËã
-    M2_angle.PWM = PID_M2_angle_PosLocCalc(M2_angle.CurPos); //Y·½ÏòPID¼ÆËã
-
-    if (M1_angle.PWM > POWER_MAX_spe)
-        M1_angle.PWM = POWER_MAX_angle; //Êä³öÏÞ·ù
-    if (M1_angle.PWM < -POWER_MAX_spe)
-        M1_angle.PWM = -POWER_MAX_angle;
-    if (M2_angle.PWM > POWER_MAX_spe)
-        M2_angle.PWM = POWER_MAX_angle;
-    if (M2_angle.PWM < -POWER_MAX_spe)
-        M2_angle.PWM = -POWER_MAX_angle;
-
-    MotorMove(M1_angle.PWM, M2_angle.PWM);
+    //////////////////////////////////////////////è¾“å‡º///////////////////////////////////////////
+    motor_move_angle(&m1, m1.speed.output);
+    motor_move_angle(&m2, m2.speed.output);
 }
 
-u32 cout7 = 0;
+uint32_t cout7 = 0;
 void Mode_7(void)
 {
     float set_x = 0;
     float set_y = 0;
-    const float priod = 4000.0;      ///ÖÜÆÚ(ºÁÃë)
-    static uint32_t MoveTimeCnt = 0; //¼ÆÊý
-    float R = 10;                    //»­Ô²°ë¾¶
+    const float priod = 4000.0;      ///å‘¨æœŸ(æ¯«ç§’)
+    static uint32_t MoveTimeCnt = 0; //è®¡æ•°
+    float R = 10;                    //ç”»åœ†åŠå¾„
     float Normalization = 0.0;
     float Omega = 0.0;
 
     if (Start == 1)
     {
-        if (cout7 < 100) //ÏÖÔÚÇøÓò4µÈ2s
+        if (cout7 < 100) //çŽ°åœ¨åŒºåŸŸ4ç­‰2s
         {
             set_x = 12.5;
             set_y = 22.5;
         }
-        else if (cout7 < 600) //ÔÚÇøÓò5ÖÜÎ§»·ÈÆ3È¦ÒÔÉÏ
+        else if (cout7 < 600) //åœ¨åŒºåŸŸ5å‘¨å›´çŽ¯ç»•3åœˆä»¥ä¸Š
         {
-            MoveTimeCnt += 20;                          //Ã¿20msÔËËã1´Î
-            Normalization = (float)MoveTimeCnt / priod; //¶Ôµ¥°ÚÖÜÆÚ¹éÒ»»¯
-            Omega = 2.0 * 3.14159 * Normalization;      //¶Ô2¦Ð½øÐÐ¹éÒ»»¯´¦Àí
-            set_x = R * sin(Omega);                     //¼ÆËã³öµ±Ç°°Ú½Ç
-            set_y = R * sin(Omega + 3.141592 / 2.0);    //¼ÆËã³öµ±Ç°°Ú½Ç
+            MoveTimeCnt += 20;                          //æ¯20msè¿ç®—1æ¬¡
+            Normalization = (float)MoveTimeCnt / priod; //å¯¹å•æ‘†å‘¨æœŸå½’ä¸€åŒ–
+            Omega = 2.0 * 3.14159 * Normalization;      //å¯¹2Ï€è¿›è¡Œå½’ä¸€åŒ–å¤„ç†
+            set_x = R * sin(Omega);                     //è®¡ç®—å‡ºå½“å‰æ‘†è§’
+            set_y = R * sin(Omega + 3.141592 / 2.0);    //è®¡ç®—å‡ºå½“å‰æ‘†è§’
         }
-        else //È¥ÇøÓò9
+        else //åŽ»åŒºåŸŸ9
         {
             set_x = 52.5;
             set_y = 52.5;
@@ -604,52 +398,27 @@ void Mode_7(void)
         cout7 = 0;
     }
 
-    M1PID_spe.SetPoint = set_x;
-    M1PID_spe.Proportion = 50;
-    M1PID_spe.Integral = 0;
-    M1PID_spe.Derivative = 800;
+    /////////////////////////////////////////////ä½ç½®çŽ¯PID///////////////////////////////
+    m1.pos.input = set_x;
+    pid_set(&m1.pos, 50, 0, 800, 10);
+    pid_cacl(&m1.pos);
 
-    M2PID_spe.SetPoint = set_y;
-    M2PID_spe.Proportion = 50;
-    M2PID_spe.Integral = 0;
-    M2PID_spe.Derivative = 800;
+    m2.pos.input = set_x;
+    pid_set(&m2.pos, 50, 0, 800, 10);
+    pid_cacl(&m2.pos);
 
-    M1_spe.PWM = PID_M1_spe_PosLocCalc(M1_spe.CurPos); //X·½ÏòPID¼ÆËã
-    M2_spe.PWM = PID_M2_spe_PosLocCalc(M2_spe.CurPos); //Y·½ÏòPID¼ÆËã
+    //////////////////////////////////////////////é€Ÿåº¦çŽ¯///////////////////////////////////////////
+    m1.speed.input = set_x;
+    pid_set(&m2.speed, 50, 0, 800, 10);
+    pid_cacl(&m1.speed);
 
-    if (M1_spe.PWM > POWER_MAX_spe)
-        M1_spe.PWM = POWER_MAX_spe; //Êä³öÏÞ·ù
-    if (M1_spe.PWM < -POWER_MAX_spe)
-        M1_spe.PWM = -POWER_MAX_spe;
-    if (M2_spe.PWM > POWER_MAX_spe)
-        M2_spe.PWM = POWER_MAX_spe;
-    if (M2_spe.PWM < -POWER_MAX_spe)
-        M2_spe.PWM = -POWER_MAX_spe;
+    m2.speed.input = set_x;
+    pid_set(&m2.speed, 50, 0, 800, 10);
+    pid_cacl(&m2.speed);
 
-    //////////////////////////////////////////////ËÙ¶È»·///////////////////////////////////////////
-    M1PID_angle.SetPoint = M1_spe.PWM;
-    M1PID_angle.Proportion = 50;
-    M1PID_angle.Integral = 0;
-    M1PID_angle.Derivative = 800;
-
-    M2PID_angle.SetPoint = M2_spe.PWM;
-    M2PID_angle.Proportion = 50;
-    M2PID_angle.Integral = 0;
-    M2PID_angle.Derivative = 800;
-
-    M1_angle.PWM = PID_M1_angle_PosLocCalc(M1_angle.CurPos); //X·½ÏòPID¼ÆËã
-    M2_angle.PWM = PID_M2_angle_PosLocCalc(M2_angle.CurPos); //Y·½ÏòPID¼ÆËã
-
-    if (M1_angle.PWM > POWER_MAX_spe)
-        M1_angle.PWM = POWER_MAX_angle; //Êä³öÏÞ·ù
-    if (M1_angle.PWM < -POWER_MAX_spe)
-        M1_angle.PWM = -POWER_MAX_angle;
-    if (M2_angle.PWM > POWER_MAX_spe)
-        M2_angle.PWM = POWER_MAX_angle;
-    if (M2_angle.PWM < -POWER_MAX_spe)
-        M2_angle.PWM = -POWER_MAX_angle;
-
-    MotorMove(M1_angle.PWM, M2_angle.PWM);
+    //////////////////////////////////////////////è¾“å‡º///////////////////////////////////////////
+    motor_move_angle(&m1, m1.speed.output);
+    motor_move_angle(&m2, m2.speed.output);
 }
 
 void Mode_8(void)
@@ -658,6 +427,6 @@ void Mode_8(void)
 
 void MotorMove(int32_t pwm1, int32_t pwm2)
 {
-    TIM_SetCompare1(TIM3, pwm1); //ÉèÖÃPWM
+    TIM_SetCompare1(TIM3, pwm1); //è®¾ç½®PWM
     TIM_SetCompare2(TIM3, pwm2);
 }
