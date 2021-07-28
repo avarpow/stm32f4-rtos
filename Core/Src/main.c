@@ -81,9 +81,9 @@ uint8_t m_Uart2_RcvByte;
 uint16_t USART2_RX_STA;
 uint8_t USART2_RX_BUF[USART_REC_LEN];
 
-int Start;               //�??????键启�??????
-int point_choose[4];     //模式六�?�择�??????
-double target_pos[9][2]; //储存的九个目标点的位�??????
+int Start;               //�???????键启�???????
+int point_choose[4];     //模式六�?�择�???????
+double target_pos[9][2]; //储存的九个目标点的位�???????
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -132,16 +132,8 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
   /* Prevent unused argument(s) compilation warning */
   if (huart->ErrorCode & HAL_UART_ERROR_ORE)
   {
-    if (huart->Instance == USART1)
-    {
-      __HAL_UART_CLEAR_OREFLAG(huart);
-      HAL_UART_Receive_IT(&huart1, &m_Uart1_RcvByte, 1);
-    }
-    if (huart->Instance == USART2)
-    {
-      __HAL_UART_CLEAR_OREFLAG(huart);
-      HAL_UART_Receive_IT(&huart2, &m_Uart2_RcvByte, 1);
-    }
+    __HAL_UART_CLEAR_OREFLAG(huart);
+    HAL_UART_Receive_IT(huart, &m_Uart1_RcvByte, 1);
   }
   /* NOTE : This function should not be modified, when the callback is needed,
             the HAL_UART_ErrorCallback can be implemented in the user file.
@@ -225,11 +217,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
     // }
   }
 }
-void uart_print(UART_HandleTypeDef *uart, uint8_t *s, int len)
+void uart_print(UART_HandleTypeDef *uart, uint8_t *s)
 {
-  if (HAL_UART_Transmit(uart, s, len * sizeof(*s), 5000) != HAL_OK)
+  while (*s != '\0')
   {
-    Error_Handler();
+    if (HAL_UART_Transmit(uart, s, 1, 100) != HAL_OK)
+    {
+      Error_Handler();
+    }
+    s++;
   }
 }
 void My_Jsonparse(const char *USART_RX_BUF)
@@ -503,7 +499,7 @@ int main(void)
       {
         Mode = 8;
       }
-      //ģʽ��ѡ���ĸ�Ŀ���??????0~3=A~D
+      //ģʽ��ѡ���ĸ�Ŀ���???????0~3=A~D
       else if (sel == 'B')
       {
         point_choose[3] = num % 10;
