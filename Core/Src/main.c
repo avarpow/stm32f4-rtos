@@ -107,23 +107,14 @@ uint8_t getBuffer[100] = "ttttttttttttt";            //user-defined buffer
 uint8_t UART1_rxBuffer[1000];                        //user-defined buffer
 uint8_t UART1_msg_ok = 0;
 // Redirect print start
-int __io_putchar(int ch)
-{
-  //Specific which serial port can change USART1 to other serial ports
-  while ((USART2->SR & 0X40) == 0)
-    ; //Cycle sending until the sending is completed
-  USART2->DR = (uint8_t)ch;
-  return ch;
-}
 
 // The _write function is defined in syscalls.c using __weak, so you can define the _write function directly in other files
-__attribute__((weak)) int _write(int file, char *ptr, int len)
+int _write(int file, char *ptr, int len)
 {
-  int DataIdx;
-  for (DataIdx = 0; DataIdx < len; DataIdx++)
-  {
-    __io_putchar(*ptr++);
-  }
+  /* Implement your write code here, this is used by puts and printf for example */
+  int i = 0;
+  for (i = 0; i < len; i++)
+    ITM_SendChar((*ptr++));
   return len;
 }
 // redirect print end
@@ -390,7 +381,10 @@ int main(void)
     //   HAL_Delay(100);
     // }
     // HAL_UART_Transmit(&huart2, "LIVE\n", 2, 1000);
-
+    int count = 0;
+    printf("Hello SWV debugging prints...count = %d\n", count++);
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    HAL_Delay(1000);
     if (USART1_RX_STA & 0x8000)
     {
       UART1_rxBuffer[MSG_LEN] = '\n';
