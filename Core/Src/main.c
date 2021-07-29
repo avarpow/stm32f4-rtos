@@ -83,9 +83,9 @@ uint16_t USART2_RX_STA;
 uint8_t USART2_RX_BUF[USART_REC_LEN];
 uint8_t sprintf_buffer[1000];
 
-int Start;               //�????????键启�????????
-int point_choose[4];     //模式六�?�择�????????
-double target_pos[9][2]; //储存的九个目标点的位�????????
+int Start;               //�?????????键启�?????????
+int point_choose[4];     //模式六�?�择�?????????
+double target_pos[9][2]; //储存的九个目标点的位�?????????
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -133,7 +133,32 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
             the HAL_UART_ErrorCallback can be implemented in the user file.
    */
 }
+void delay_us(uint32_t udelay)
+{
+  uint32_t startval, tickn, delays, wait;
 
+  startval = SysTick->VAL;
+  tickn = HAL_GetTick();
+  //sysc = 72000;  //SystemCoreClock / (1000U / uwTickFreq);
+  delays = udelay * 72; //sysc / 1000 * udelay;
+  if (delays > startval)
+  {
+    while (HAL_GetTick() == tickn)
+    {
+    }
+    wait = 72000 + startval - delays;
+    while (wait < SysTick->VAL)
+    {
+    }
+  }
+  else
+  {
+    wait = startval - delays;
+    while (wait < SysTick->VAL && HAL_GetTick() == tickn)
+    {
+    }
+  }
+}
 void UART1_ReceiveByte(uint8_t Res)
 {
 
@@ -328,6 +353,7 @@ int main(void)
   HAL_UART_Receive_IT(&huart1, &m_Uart1_RcvByte, 1);
   HAL_UART_Receive_IT(&huart2, &m_Uart2_RcvByte, 1);
   HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
+  OLED_Init();
 
   /* USER CODE END 2 */
 
@@ -390,11 +416,16 @@ int main(void)
     // }
     // HAL_UART_Transmit(&huart2, "LIVE\n", 2, 1000);
     printf("Hello SWV debugging prints...count = %d cnt=%d\r\n", count++, cnt);
-    sprintf(sprintf_buffer, "Hello SWV debugging prints...count = %d cnt=%d\r\n", count++, cnt);
+    // sprintf(sprintf_buffer, "Hello SWV debugging prints...count = %d cnt=%d\r\n", count++, cnt);
     uart_print(&huart2, sprintf_buffer);
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    delay_us(500);
+    if (count % 32000 == 0)
+    {
+      HAL_Delay(2000);
+      count = 0;
+    }
     cnt = __HAL_TIM_GetCounter(&htim4);
-    HAL_Delay(50);
     if (USART1_RX_STA & 0x8000)
     {
       UART1_rxBuffer[MSG_LEN] = '\n';
@@ -503,7 +534,7 @@ int main(void)
       {
         Mode = 8;
       }
-      //ģʽ��ѡ���ĸ�Ŀ���????????0~3=A~D
+      //ģʽ��ѡ���ĸ�Ŀ���?????????0~3=A~D
       else if (sel == 'B')
       {
         point_choose[3] = num % 10;
@@ -838,12 +869,22 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : PC13 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB2 */
+  GPIO_InitStruct.Pin = GPIO_PIN_2;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 }
 
 /* USER CODE BEGIN 4 */
