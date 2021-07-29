@@ -19,7 +19,7 @@ void Delay_ms(uint8_t n)
 /*********************写一位数据到SPI*******************/
 void OLED_WB(uint8_t data)
 {
-    HAL_SPI_Transmit(&hspi1, &data, 1, 1000);
+    //HAL_SPI_Transmit(&hspi1, &data, 1, 1000);
     uDelay(2);
 }
 

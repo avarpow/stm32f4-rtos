@@ -34,7 +34,7 @@
 #define MAX_CHAR_POSX X_WIDTH - 6 //字符宽度需要-6
 #define MAX_CHAR_POSY Y_WIDTH - 6 //字符长度需要-6
 
-extern SPI_HandleTypeDef hspi1;
+//extern SPI_HandleTypeDef hspi1;
 //OLED初始化
 void OLED_Init(void);
 //OLED清屏

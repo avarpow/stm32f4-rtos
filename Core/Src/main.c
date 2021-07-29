@@ -47,8 +47,6 @@
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 
-SPI_HandleTypeDef hspi1;
-
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
@@ -83,16 +81,15 @@ uint16_t USART2_RX_STA;
 uint8_t USART2_RX_BUF[USART_REC_LEN];
 uint8_t sprintf_buffer[1000];
 
-int Start;               //�?????????键启�?????????
-int point_choose[4];     //模式六�?�择�?????????
-double target_pos[9][2]; //储存的九个目标点的位�?????????
+int Start;               //�?????????????键启�?????????????
+int point_choose[4];     //模式六�?�择�?????????????
+double target_pos[9][2]; //储存的九个目标点的位�?????????????
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_SPI1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
@@ -341,7 +338,6 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C1_Init();
-  MX_SPI1_Init();
   MX_TIM3_Init();
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
@@ -353,8 +349,16 @@ int main(void)
   HAL_UART_Receive_IT(&huart1, &m_Uart1_RcvByte, 1);
   HAL_UART_Receive_IT(&huart2, &m_Uart2_RcvByte, 1);
   HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
-  OLED_Init();
 
+  // PCA9685_Init(&hi2c1);
+  float init_angle = 0;
+  // PCA9685_SetServoAngle(0, &init_angle);
+  // PCA9685_SetServoAngle(1, &init_angle);
+  // PCA9685_SetServoAngle(2, &init_angle);
+  // PCA9685_SetServoAngle(3, &init_angle);
+  // PCA9685_SetServoAngle(4, &init_angle);
+
+  // HAL_Delay(2000);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -376,7 +380,13 @@ int main(void)
   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 1450);
   int count = 0;
   int cnt = 0;
-
+  uint8_t ActiveServo = 0;
+  lcd_init();
+  HAL_Delay(1000);
+  lcd_send_string("Hello World!");
+  HAL_Delay(1000);
+  lcd_put_cur(1, 0);
+  lcd_send_string("from Cedr1c");
   while (1)
   {
     // for (int i = 0; i < 180; i++)
@@ -413,151 +423,160 @@ int main(void)
     //   CH1_DC -= 10;
     //   CH2_DC -= 10;
     //   HAL_Delay(100);
-    // }
     // HAL_UART_Transmit(&huart2, "LIVE\n", 2, 1000);
-    printf("Hello SWV debugging prints...count = %d cnt=%d\r\n", count++, cnt);
+    printf("Hello SWV debugging prints...count = %d ActiveServo=%d\r\n", count++, ActiveServo);
     // sprintf(sprintf_buffer, "Hello SWV debugging prints...count = %d cnt=%d\r\n", count++, cnt);
     uart_print(&huart2, sprintf_buffer);
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-    delay_us(500);
-    if (count % 32000 == 0)
-    {
-      HAL_Delay(2000);
-      count = 0;
-    }
-    cnt = __HAL_TIM_GetCounter(&htim4);
-    if (USART1_RX_STA & 0x8000)
-    {
-      UART1_rxBuffer[MSG_LEN] = '\n';
-      My_Jsonparse(UART1_rxBuffer);
+    HAL_Delay(100);
+    i2c_detect();
 
-      UART1_msg_ok = 0;
-      // printf("px.val=%.2lf\xff\xff\xff\r\n", m1.speed.cur);
-      // printf("py.val=%.2lf\xff\xff\xff\r\n", m2.speed.cur);
-      // printf("vx.val=%.2lf\xff\xff\xff\r\n", m1.pos.cur);
-      // printf("vy.val=%.2lf\xff\xff\xff\r\n", m2.pos.cur);
-      // printf("tx.val=%.2lf\xff\xff\xff\r\n", m1.pos.input);
-      // printf("ty.val=%.2lf\xff\xff\xff\r\n", m2.pos.input);
-      // printf("testing2!"); // print
-      // printf("\r\n");      // manual new line
-      switch (Mode) //������Ŀѡ����
-      {
-      case 1:
-        Mode_1();
-        break;
-      case 2:
-        Mode_2();
-        break;
-      case 3:
-        Mode_3();
-        break;
-      case 4:
-        Mode_4();
-        break;
-      case 5:
-        Mode_5();
-        break;
-      case 6:
-        Mode_6();
-        break;
-      case 7:
-        Mode_7();
-        break;
-      case 8:
-        Mode_8();
-        break;
-      default:
-        break;
-      }
-    }
-    char end[] = {0xff, 0xff, 0xff}; //������ͨ��Э��
-    uint16_t len;
-    uint16_t t;
-    uint16_t sel;
-    uint16_t num;
-    uint16_t i;
-    uint32_t times;
+    // for (float Angle = 0; Angle < 100; Angle += 10)
+    // {
+    //   PCA9685_SetServoAngle(ActiveServo, &Angle);
+    //   HAL_Delay(5);
+    // }
+    // for (float Angle = 100; Angle > 0; Angle -= 10)
+    // {
+    //   PCA9685_SetServoAngle(ActiveServo, &Angle);
+    //   HAL_Delay(5);
+    // }
+    //   ActiveServo++;
+    //   if (ActiveServo >= 4)
+    //     ActiveServo = 0;
+    //   cnt = __HAL_TIM_GetCounter(&htim4);
+    //   if (USART1_RX_STA & 0x8000)
+    //   {
+    //     UART1_rxBuffer[MSG_LEN] = '\n';
+    //     My_Jsonparse(UART1_rxBuffer);
 
-    uint16_t len_uart;
-    if (USART2_RX_STA & 0x8000)
-    {
-      len = USART2_RX_STA & 0x3fff; //�õ��˴ν��յ������ݳ���
-      sel = USART2_RX_BUF[0];       //��ʶ��
-      num = USART2_RX_BUF[2] + USART2_RX_BUF[3] * 256;
-      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-      if (sel == 0)
-      {
-        printf("n3.val=%d\xff\xff\xff", num);
-        fflush(stdout);
-      }
-      else if (sel == 1)
-      {
-        printf("n4.val=%d\xff\xff\xff", num);
-        fflush(stdout);
-      }
-      else if (sel == 2)
-      {
-        printf("n5.val=%d\xff\xff\xff", num);
-        fflush(stdout);
-      }
+    //     UART1_msg_ok = 0;
+    //     // printf("px.val=%.2lf\xff\xff\xff\r\n", m1.speed.cur);
+    //     // printf("py.val=%.2lf\xff\xff\xff\r\n", m2.speed.cur);
+    //     // printf("vx.val=%.2lf\xff\xff\xff\r\n", m1.pos.cur);
+    //     // printf("vy.val=%.2lf\xff\xff\xff\r\n", m2.pos.cur);
+    //     // printf("tx.val=%.2lf\xff\xff\xff\r\n", m1.pos.input);
+    //     // printf("ty.val=%.2lf\xff\xff\xff\r\n", m2.pos.input);
+    //     // printf("testing2!"); // print
+    //     // printf("\r\n");      // manual new line
+    //     switch (Mode) //������Ŀѡ����
+    //     {
+    //     case 1:
+    //       Mode_1();
+    //       break;
+    //     case 2:
+    //       Mode_2();
+    //       break;
+    //     case 3:
+    //       Mode_3();
+    //       break;
+    //     case 4:
+    //       Mode_4();
+    //       break;
+    //     case 5:
+    //       Mode_5();
+    //       break;
+    //     case 6:
+    //       Mode_6();
+    //       break;
+    //     case 7:
+    //       Mode_7();
+    //       break;
+    //     case 8:
+    //       Mode_8();
+    //       break;
+    //     default:
+    //       break;
+    //     }
+    //   }
+    //   char end[] = {0xff, 0xff, 0xff}; //������ͨ��Э��
+    //   uint16_t len;
+    //   uint16_t t;
+    //   uint16_t sel;
+    //   uint16_t num;
+    //   uint16_t i;
+    //   uint32_t times;
 
-      else if (sel == 3)
-      {
-        // LED0 = !LED0;
-        Mode = 1;
-      }
-      else if (sel == 4)
-      {
-        Mode = 2;
-      }
-      else if (sel == 5)
-      {
-        Mode = 3;
-      }
-      else if (sel == 6)
-      {
-        Mode = 4;
-      }
-      else if (sel == 7)
-      {
-        Mode = 5;
-      }
-      else if (sel == 8)
-      {
-        Mode = 6;
-      }
-      else if (sel == 9)
-      {
-        Mode = 7;
-      }
-      else if (sel == 'A')
-      {
-        Mode = 8;
-      }
-      //ģʽ��ѡ���ĸ�Ŀ���?????????0~3=A~D
-      else if (sel == 'B')
-      {
-        point_choose[3] = num % 10;
-        num = num / 10;
-        point_choose[2] = num % 10;
-        num = num / 10;
-        point_choose[1] = num % 10;
-        num = num / 10;
-        point_choose[0] = num % 10;
-      }
-      //һ������
-      else if (sel == 'C')
-      {
-        Start = 1;
-      }
-      //һ��ֹͣ
-      else if (sel == 'D')
-      {
-        Start = 0;
-      }
+    //   uint16_t len_uart;
+    //   if (USART2_RX_STA & 0x8000)
+    //   {
+    //     len = USART2_RX_STA & 0x3fff; //�õ��˴ν��յ������ݳ���
+    //     sel = USART2_RX_BUF[0];       //��ʶ��
+    //     num = USART2_RX_BUF[2] + USART2_RX_BUF[3] * 256;
+    //     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    //     if (sel == 0)
+    //     {
+    //       printf("n3.val=%d\xff\xff\xff", num);
+    //       fflush(stdout);
+    //     }
+    //     else if (sel == 1)
+    //     {
+    //       printf("n4.val=%d\xff\xff\xff", num);
+    //       fflush(stdout);
+    //     }
+    //     else if (sel == 2)
+    //     {
+    //       printf("n5.val=%d\xff\xff\xff", num);
+    //       fflush(stdout);
+    //     }
 
-      USART2_RX_STA = 0;
-    }
+    //     else if (sel == 3)
+    //     {
+    //       // LED0 = !LED0;
+    //       Mode = 1;
+    //     }
+    //     else if (sel == 4)
+    //     {
+    //       Mode = 2;
+    //     }
+    //     else if (sel == 5)
+    //     {
+    //       Mode = 3;
+    //     }
+    //     else if (sel == 6)
+    //     {
+    //       Mode = 4;
+    //     }
+    //     else if (sel == 7)
+    //     {
+    //       Mode = 5;
+    //     }
+    //     else if (sel == 8)
+    //     {
+    //       Mode = 6;
+    //     }
+    //     else if (sel == 9)
+    //     {
+    //       Mode = 7;
+    //     }
+    //     else if (sel == 'A')
+    //     {
+    //       Mode = 8;
+    //     }
+    //     //ģʽ��ѡ���ĸ�Ŀ���?????????????0~3=A~D
+    //     else if (sel == 'B')
+    //     {
+    //       point_choose[3] = num % 10;
+    //       num = num / 10;
+    //       point_choose[2] = num % 10;
+    //       num = num / 10;
+    //       point_choose[1] = num % 10;
+    //       num = num / 10;
+    //       point_choose[0] = num % 10;
+    //     }
+    //     //һ������
+    //     else if (sel == 'C')
+    //     {
+    //       Start = 1;
+    //     }
+    //     //һ��ֹͣ
+    //     else if (sel == 'D')
+    //     {
+    //       Start = 0;
+    //     }
+
+    //     USART2_RX_STA = 0;
+    //   }
   }
   /* USER CODE END WHILE */
 
@@ -639,43 +658,6 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
-}
-
-/**
-  * @brief SPI1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI1_Init(void)
-{
-
-  /* USER CODE BEGIN SPI1_Init 0 */
-
-  /* USER CODE END SPI1_Init 0 */
-
-  /* USER CODE BEGIN SPI1_Init 1 */
-
-  /* USER CODE END SPI1_Init 1 */
-  /* SPI1 parameter configuration*/
-  hspi1.Instance = SPI1;
-  hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi1.Init.CRCPolynomial = 10;
-  if (HAL_SPI_Init(&hspi1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI1_Init 2 */
-
-  /* USER CODE END SPI1_Init 2 */
 }
 
 /**
@@ -863,6 +845,7 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
