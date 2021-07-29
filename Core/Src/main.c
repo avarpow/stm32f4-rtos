@@ -50,6 +50,7 @@ I2C_HandleTypeDef hi2c1;
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim4;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
@@ -80,10 +81,11 @@ uint8_t USART1_RX_BUF[USART_REC_LEN];
 uint8_t m_Uart2_RcvByte;
 uint16_t USART2_RX_STA;
 uint8_t USART2_RX_BUF[USART_REC_LEN];
+uint8_t sprintf_buffer[1000];
 
-int Start;               //�???????键启�???????
-int point_choose[4];     //模式六�?�择�???????
-double target_pos[9][2]; //储存的九个目标点的位�???????
+int Start;               //�????????键启�????????
+int point_choose[4];     //模式六�?�择�????????
+double target_pos[9][2]; //储存的九个目标点的位�????????
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,6 +96,7 @@ static void MX_SPI1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -317,12 +320,14 @@ int main(void)
   MX_TIM3_Init();
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
 
   HAL_UART_Receive_IT(&huart1, &m_Uart1_RcvByte, 1);
   HAL_UART_Receive_IT(&huart2, &m_Uart2_RcvByte, 1);
+  HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
 
   /* USER CODE END 2 */
 
@@ -343,6 +348,9 @@ int main(void)
   // int32_t CH1_DC = 0, CH2_DC = 0;
   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 1550);
   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 1450);
+  int count = 0;
+  int cnt = 0;
+
   while (1)
   {
     // for (int i = 0; i < 180; i++)
@@ -381,10 +389,12 @@ int main(void)
     //   HAL_Delay(100);
     // }
     // HAL_UART_Transmit(&huart2, "LIVE\n", 2, 1000);
-    int count = 0;
-    printf("Hello SWV debugging prints...count = %d\n", count++);
+    printf("Hello SWV debugging prints...count = %d cnt=%d\r\n", count++, cnt);
+    sprintf(sprintf_buffer, "Hello SWV debugging prints...count = %d cnt=%d\r\n", count++, cnt);
+    uart_print(&huart2, sprintf_buffer);
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-    HAL_Delay(1000);
+    cnt = __HAL_TIM_GetCounter(&htim4);
+    HAL_Delay(50);
     if (USART1_RX_STA & 0x8000)
     {
       UART1_rxBuffer[MSG_LEN] = '\n';
@@ -493,7 +503,7 @@ int main(void)
       {
         Mode = 8;
       }
-      //ģʽ��ѡ���ĸ�Ŀ���???????0~3=A~D
+      //ģʽ��ѡ���ĸ�Ŀ���????????0~3=A~D
       else if (sel == 'B')
       {
         point_choose[3] = num % 10;
@@ -697,6 +707,54 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 2 */
   HAL_TIM_MspPostInit(&htim3);
+}
+
+/**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 3;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 65535;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 0;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 0;
+  if (HAL_TIM_Encoder_Init(&htim4, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
 }
 
 /**
