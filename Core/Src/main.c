@@ -45,6 +45,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
 I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim3;
@@ -81,9 +83,9 @@ uint16_t USART2_RX_STA;
 uint8_t USART2_RX_BUF[USART_REC_LEN];
 uint8_t sprintf_buffer[1000];
 
-int Start;               //�?????????????键启�?????????????
-int point_choose[4];     //模式六�?�择�?????????????
-double target_pos[9][2]; //储存的九个目标点的位�?????????????
+int Start;               //�??????????????键启�??????????????
+int point_choose[4];     //模式六�?�择�??????????????
+double target_pos[9][2]; //储存的九个目标点的位�??????????????
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,6 +96,7 @@ static void MX_TIM3_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -155,6 +158,21 @@ void delay_us(uint32_t udelay)
     {
     }
   }
+}
+uint16_t ADC_Value = 0;
+uint16_t dong_get_adc()
+{
+  //开启ADC1
+  HAL_ADC_Start(&hadc1);
+  //等待ADC转换完成，超时为100ms
+  HAL_ADC_PollForConversion(&hadc1, 100);
+  //判断ADC是否转换成功
+  if (HAL_IS_BIT_SET(HAL_ADC_GetState(&hadc1), HAL_ADC_STATE_REG_EOC))
+  {
+    //读取值
+    return HAL_ADC_GetValue(&hadc1);
+  }
+  return 0;
 }
 void UART1_ReceiveByte(uint8_t Res)
 {
@@ -342,6 +360,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_TIM4_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
@@ -429,33 +448,37 @@ int main(void)
     uart_print(&huart2, sprintf_buffer);
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
     HAL_Delay(100);
+    ADC_Value = dong_get_adc();
+    lcd_clear();
+    lcd_put_cur(0, 0);
+    sprintf(sprintf_buffer, "adc %4d", (int)ADC_Value);
+    lcd_send_string(sprintf_buffer);
     // i2c_detect();
-
-    for (float Angle = 0; Angle < 100; Angle += 10)
-    {
-      PCA9685_SetServoAngle(ActiveServo, &Angle);
-      lcd_put_cur(0, 0);
-      sprintf(sprintf_buffer, "servo %d", (int)ActiveServo);
-      lcd_send_string(sprintf_buffer);
-      lcd_put_cur(1, 0);
-      sprintf(sprintf_buffer, "angle %d", (int)Angle);
-      lcd_send_string(sprintf_buffer);
-      HAL_Delay(50);
-    }
-    for (float Angle = 100; Angle > 0; Angle -= 10)
-    {
-      PCA9685_SetServoAngle(ActiveServo, &Angle);
-      lcd_put_cur(0, 0);
-      sprintf(sprintf_buffer, "servo %d", (int)ActiveServo);
-      lcd_send_string(sprintf_buffer);
-      lcd_put_cur(1, 0);
-      sprintf(sprintf_buffer, "angle %d", (int)Angle);
-      lcd_send_string(sprintf_buffer);
-      HAL_Delay(50);
-    }
-    ActiveServo++;
-    if (ActiveServo > 1)
-      ActiveServo = 0;
+    // for (float Angle = 0; Angle < 100; Angle += 10)
+    // {
+    //   PCA9685_SetServoAngle(ActiveServo, &Angle);
+    //   lcd_put_cur(0, 0);
+    //   sprintf(sprintf_buffer, "servo %d", (int)ActiveServo);
+    //   lcd_send_string(sprintf_buffer);
+    //   lcd_put_cur(1, 0);
+    //   sprintf(sprintf_buffer, "angle %d", (int)Angle);
+    //   lcd_send_string(sprintf_buffer);
+    //   HAL_Delay(50);
+    // }
+    // for (float Angle = 100; Angle > 0; Angle -= 10)
+    // {
+    //   PCA9685_SetServoAngle(ActiveServo, &Angle);
+    //   lcd_put_cur(0, 0);
+    //   sprintf(sprintf_buffer, "servo %d", (int)ActiveServo);
+    //   lcd_send_string(sprintf_buffer);
+    //   lcd_put_cur(1, 0);
+    //   sprintf(sprintf_buffer, "angle %d", (int)Angle);
+    //   lcd_send_string(sprintf_buffer);
+    //   HAL_Delay(50);
+    // }
+    // ActiveServo++;
+    // if (ActiveServo > 1)
+    //   ActiveServo = 0;
     //   cnt = __HAL_TIM_GetCounter(&htim4);
     //   if (USART1_RX_STA & 0x8000)
     //   {
@@ -565,7 +588,7 @@ int main(void)
     //     {
     //       Mode = 8;
     //     }
-    //     //ģʽ��ѡ���ĸ�Ŀ���?????????????0~3=A~D
+    //     //ģʽ��ѡ���ĸ�Ŀ���??????????????0~3=A~D
     //     else if (sel == 'B')
     //     {
     //       point_choose[3] = num % 10;
@@ -637,6 +660,55 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_7;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
 }
 
 /**
