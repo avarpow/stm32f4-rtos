@@ -350,13 +350,13 @@ int main(void)
   HAL_UART_Receive_IT(&huart2, &m_Uart2_RcvByte, 1);
   HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
 
-  // PCA9685_Init(&hi2c1);
+  PCA9685_Init(&hi2c1);
   float init_angle = 0;
-  // PCA9685_SetServoAngle(0, &init_angle);
-  // PCA9685_SetServoAngle(1, &init_angle);
-  // PCA9685_SetServoAngle(2, &init_angle);
-  // PCA9685_SetServoAngle(3, &init_angle);
-  // PCA9685_SetServoAngle(4, &init_angle);
+  PCA9685_SetServoAngle(0, &init_angle);
+  PCA9685_SetServoAngle(1, &init_angle);
+  PCA9685_SetServoAngle(2, &init_angle);
+  PCA9685_SetServoAngle(3, &init_angle);
+  PCA9685_SetServoAngle(4, &init_angle);
 
   // HAL_Delay(2000);
   /* USER CODE END 2 */
@@ -429,21 +429,33 @@ int main(void)
     uart_print(&huart2, sprintf_buffer);
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
     HAL_Delay(100);
-    i2c_detect();
+    // i2c_detect();
 
-    // for (float Angle = 0; Angle < 100; Angle += 10)
-    // {
-    //   PCA9685_SetServoAngle(ActiveServo, &Angle);
-    //   HAL_Delay(5);
-    // }
-    // for (float Angle = 100; Angle > 0; Angle -= 10)
-    // {
-    //   PCA9685_SetServoAngle(ActiveServo, &Angle);
-    //   HAL_Delay(5);
-    // }
-    //   ActiveServo++;
-    //   if (ActiveServo >= 4)
-    //     ActiveServo = 0;
+    for (float Angle = 0; Angle < 100; Angle += 10)
+    {
+      PCA9685_SetServoAngle(ActiveServo, &Angle);
+      lcd_put_cur(0, 0);
+      sprintf(sprintf_buffer, "servo %d", (int)ActiveServo);
+      lcd_send_string(sprintf_buffer);
+      lcd_put_cur(1, 0);
+      sprintf(sprintf_buffer, "angle %d", (int)Angle);
+      lcd_send_string(sprintf_buffer);
+      HAL_Delay(50);
+    }
+    for (float Angle = 100; Angle > 0; Angle -= 10)
+    {
+      PCA9685_SetServoAngle(ActiveServo, &Angle);
+      lcd_put_cur(0, 0);
+      sprintf(sprintf_buffer, "servo %d", (int)ActiveServo);
+      lcd_send_string(sprintf_buffer);
+      lcd_put_cur(1, 0);
+      sprintf(sprintf_buffer, "angle %d", (int)Angle);
+      lcd_send_string(sprintf_buffer);
+      HAL_Delay(50);
+    }
+    ActiveServo++;
+    if (ActiveServo > 1)
+      ActiveServo = 0;
     //   cnt = __HAL_TIM_GetCounter(&htim4);
     //   if (USART1_RX_STA & 0x8000)
     //   {
