@@ -49,6 +49,8 @@ ADC_HandleTypeDef hadc1;
 
 I2C_HandleTypeDef hi2c1;
 
+SPI_HandleTypeDef hspi1;
+
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
@@ -83,9 +85,9 @@ uint16_t USART2_RX_STA;
 uint8_t USART2_RX_BUF[USART_REC_LEN];
 uint8_t sprintf_buffer[1000];
 
-int Start;               //�??????????????键启�??????????????
-int point_choose[4];     //模式六�?�择�??????????????
-double target_pos[9][2]; //储存的九个目标点的位�??????????????
+int Start;               //�???????????????键启�???????????????
+int point_choose[4];     //模式六�?�择�???????????????
+double target_pos[9][2]; //储存的九个目标点的位�???????????????
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -97,6 +99,7 @@ static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -162,14 +165,14 @@ void delay_us(uint32_t udelay)
 uint16_t ADC_Value = 0;
 uint16_t dong_get_adc()
 {
-  //开启ADC1
+  //�?启ADC1
   HAL_ADC_Start(&hadc1);
   //等待ADC转换完成，超时为100ms
   HAL_ADC_PollForConversion(&hadc1, 100);
   //判断ADC是否转换成功
   if (HAL_IS_BIT_SET(HAL_ADC_GetState(&hadc1), HAL_ADC_STATE_REG_EOC))
   {
-    //读取值
+    //读取�?
     return HAL_ADC_GetValue(&hadc1);
   }
   return 0;
@@ -361,6 +364,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_TIM4_Init();
   MX_ADC1_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
@@ -401,13 +405,21 @@ int main(void)
   int cnt = 0;
   uint8_t ActiveServo = 0;
   lcd_init();
-  HAL_Delay(1000);
-  lcd_send_string("Hello World!");
-  HAL_Delay(1000);
-  lcd_put_cur(1, 0);
-  lcd_send_string("from Cedr1c");
+  // HAL_Delay(1000);
+  // HAL_Delay(1000);
+  // lcd_put_cur(1, 0);
+  // lcd_send_string("from Cedr1c");
+  OLED_Init();
   while (1)
   {
+    lcd_put_cur(0, 0);
+    lcd_send_string("Hello World!");
+    HAL_Delay(1000);
+    OLED_Fill(0, 0, 30, 30, 1);
+    HAL_Delay(1000);
+    OLED_Fill(10, 10, 30, 30, 0);
+    lcd_clear();
+    HAL_Delay(1000);
     // for (int i = 0; i < 180; i++)
     // {
     //   motor_move_angle(&m1, 1.0 * i);
@@ -443,16 +455,18 @@ int main(void)
     //   CH2_DC -= 10;
     //   HAL_Delay(100);
     // HAL_UART_Transmit(&huart2, "LIVE\n", 2, 1000);
-    printf("Hello SWV debugging prints...count = %d ActiveServo=%d\r\n", count++, ActiveServo);
-    // sprintf(sprintf_buffer, "Hello SWV debugging prints...count = %d cnt=%d\r\n", count++, cnt);
-    uart_print(&huart2, sprintf_buffer);
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-    HAL_Delay(100);
-    ADC_Value = dong_get_adc();
-    lcd_clear();
-    lcd_put_cur(0, 0);
-    sprintf(sprintf_buffer, "adc %4d", (int)ADC_Value);
-    lcd_send_string(sprintf_buffer);
+
+    // printf("Hello SWV debugging prints...count = %d ActiveServo=%d\r\n", count++, ActiveServo);
+    // // sprintf(sprintf_buffer, "Hello SWV debugging prints...count = %d cnt=%d\r\n", count++, cnt);
+    // uart_print(&huart2, sprintf_buffer);
+    // HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    // HAL_Delay(100);
+    // ADC_Value = dong_get_adc();
+    // lcd_clear();
+    // lcd_put_cur(0, 0);
+    // sprintf(sprintf_buffer, "adc %4d", (int)ADC_Value);
+    // lcd_send_string(sprintf_buffer);
+
     // i2c_detect();
     // for (float Angle = 0; Angle < 100; Angle += 10)
     // {
@@ -588,7 +602,7 @@ int main(void)
     //     {
     //       Mode = 8;
     //     }
-    //     //ģʽ��ѡ���ĸ�Ŀ���??????????????0~3=A~D
+    //     //ģʽ��ѡ���ĸ�Ŀ���???????????????0~3=A~D
     //     else if (sel == 'B')
     //     {
     //       point_choose[3] = num % 10;
@@ -742,6 +756,43 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+}
+
+/**
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI1_Init(void)
+{
+
+  /* USER CODE BEGIN SPI1_Init 0 */
+
+  /* USER CODE END SPI1_Init 0 */
+
+  /* USER CODE BEGIN SPI1_Init 1 */
+
+  /* USER CODE END SPI1_Init 1 */
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI1_Init 2 */
+
+  /* USER CODE END SPI1_Init 2 */
 }
 
 /**
@@ -937,7 +988,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2 | GPIO_PIN_12 | GPIO_PIN_13, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : PC13 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
@@ -946,8 +997,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PB2 */
-  GPIO_InitStruct.Pin = GPIO_PIN_2;
+  /*Configure GPIO pins : PB2 PB12 PB13 */
+  GPIO_InitStruct.Pin = GPIO_PIN_2 | GPIO_PIN_12 | GPIO_PIN_13;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

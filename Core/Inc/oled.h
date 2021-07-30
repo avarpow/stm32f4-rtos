@@ -12,10 +12,10 @@
 //DC   接PG15  命令/数据标志（写0—命令/写1—数据）；
 //CS   接PA4   OLED片选信号
 #define OLED_DC_GPIO_Port GPIOB
-#define OLED_DC_Pin GPIO_PIN_2
+#define OLED_DC_Pin GPIO_PIN_12
 
 #define OLED_RST_GPIO_Port GPIOB
-#define OLED_RST_Pin GPIO_PIN_10
+#define OLED_RST_Pin GPIO_PIN_13
 
 // #define OLED_CS_Set() HAL_GPIO_WritePin(OLED_CS_GPIO_Port, OLED_CS_Pin, GPIO_PIN_SET);
 // #define OLED_CS_Clr() HAL_GPIO_WritePin(OLED_CS_GPIO_Port, OLED_CS_Pin, GPIO_PIN_RESET);
@@ -34,7 +34,7 @@
 #define MAX_CHAR_POSX X_WIDTH - 6 //字符宽度需要-6
 #define MAX_CHAR_POSY Y_WIDTH - 6 //字符长度需要-6
 
-//extern SPI_HandleTypeDef hspi1;
+extern SPI_HandleTypeDef hspi1;
 //OLED初始化
 void OLED_Init(void);
 //OLED清屏
