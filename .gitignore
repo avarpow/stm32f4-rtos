@@ -5,6 +5,11 @@
 !*.h
 !*.cpp
 !*.hpp
+!*.ioc
+!*.ld
+!*.cproject
+!*.mxproject
+!*.project
 [Dd]ebug/
 [Rr]elease/
 [Dd]rivers/

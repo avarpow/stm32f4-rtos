@@ -19,8 +19,8 @@ void Delay_ms(uint8_t n)
 /*********************写一位数据到SPI*******************/
 void OLED_WB(uint8_t data)
 {
-    HAL_SPI_Transmit(&hspi1, &data, 1, 1000);
-    uDelay(2);
+    HAL_SPI_Transmit(&hspi1, &data, 1, 30);
+    // uDelay(2);
 }
 
 /*******************一个字节数据写入***********************/
@@ -81,7 +81,7 @@ void OLED_Fill(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t dot)
         for (y = y1; y <= y2; y++)
             OLED_DrawPoint(x, y, dot);
     }
-    OLED_Refresh_Gram();
+    // OLED_Refresh_Gram();
 }
 
 /*********************清屏函数***********************/
@@ -126,4 +126,107 @@ void OLED_Init(void)
     OLED_WrCmd(0x8d); //--set DC-DC enable
     OLED_WrCmd(0x14); //
     OLED_WrCmd(0xaf); //--turn on oled panel
+}
+/*********************开启OLED显示 ***********************/
+void OLED_Display_On(void)
+{
+    OLED_WrCmd(0X8D); //SET DCDC命令
+    OLED_WrCmd(0X14); //DCDC ON
+    OLED_WrCmd(0XAF); //DISPLAY ON
+}
+
+/*********************关闭OLED显示 ***********************/
+void OLED_Display_Off(void)
+{
+    OLED_WrCmd(0X8D); //SET DCDC命令
+    OLED_WrCmd(0X10); //DCDC OFF
+    OLED_WrCmd(0XAE); //DISPLAY OFF
+}
+void OLED_ShowChar(uint8_t x, uint8_t y, uint8_t chr, uint8_t size, uint8_t mode)
+{
+    uint8_t temp, t, t1;
+    uint8_t y0 = y;
+    chr = chr - ' '; //得到偏移后的值
+    for (t = 0; t < size; t++)
+    {
+        if (size == 12)
+            temp = asc2_1206[chr][t]; //调用1206字体
+        else
+            temp = asc2_1608[chr][t]; //调用1608字体
+        for (t1 = 0; t1 < 8; t1++)
+        {
+            if (temp & 0x80)
+                OLED_DrawPoint(x, y, mode);
+            else
+                OLED_DrawPoint(x, y, !mode);
+            temp <<= 1;
+            y++;
+            if ((y - y0) == size)
+            {
+                y = y0;
+                x++;
+                break;
+            }
+        }
+    }
+}
+
+//显示字符串
+//x,y:起点坐标
+//*p:字符串起始地址
+//用16字体
+void OLED_ShowString(uint8_t x, uint8_t y, const uint8_t *p)
+{
+    while (*p != '\0')
+    {
+        if (x > MAX_CHAR_POSX)
+        {
+            x = 0;
+            y += 16;
+        }
+        if (y > MAX_CHAR_POSY)
+        {
+            y = x = 0;
+            OLED_CLS();
+        }
+        OLED_ShowChar(x, y, *p, 16, 1);
+        x += 8;
+        p++;
+    }
+}
+
+//显示2个数字
+//x,y :起点坐标
+//len :数字的位数
+//size:字体大小
+//mode:模式	0,填充模式;1,叠加模式
+//num:数值(0~4294967295);
+void OLED_ShowNum(uint8_t x, uint8_t y, uint32_t num, uint8_t len, uint8_t size)
+{
+    uint8_t t, temp;
+    uint8_t enshow = 0;
+    for (t = 0; t < len; t++)
+    {
+        temp = (num / mypow(10, len - t - 1)) % 10;
+        if (enshow == 0 && t < (len - 1))
+        {
+            if (temp == 0)
+            {
+                OLED_ShowChar(x + (size / 2) * t, y, ' ', size, 1);
+                continue;
+            }
+            else
+                enshow = 1;
+        }
+        OLED_ShowChar(x + (size / 2) * t, y, temp + '0', size, 1);
+    }
+}
+
+/**********************设置显示位置**********************/
+void OLED_Set_Pos(unsigned char x, unsigned char y)
+{
+    /* PAGE addressing mode */
+    OLED_WrCmd(0xb0 + (y & 0x07));        /* set page start address */
+    OLED_WrCmd(x & 0x0f);                 /* set lower nibble of the column address */
+    OLED_WrCmd(((x & 0xf0) >> 4) | 0x10); /* set higher nibble of the column address */
 }

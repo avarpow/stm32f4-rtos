@@ -107,6 +107,7 @@ static void MX_SPI1_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 #include "stdio.h"
+#include "mpu6050.h"
 uint8_t myBuffer[] = "I have gotten your message: "; //User prompt information
 uint8_t Enter[] = "\r\n";                            //Enter carriage return
 uint8_t getBuffer[100] = "ttttttttttttt";            //user-defined buffer
@@ -412,14 +413,18 @@ int main(void)
   OLED_Init();
   while (1)
   {
+    lcd_clear();
     lcd_put_cur(0, 0);
     lcd_send_string("Hello World!");
-    HAL_Delay(1000);
+    ADC_Value = dong_get_adc();
+    lcd_put_cur(1, 0);
+    sprintf(sprintf_buffer, "adc %4d", (int)ADC_Value);
+    lcd_send_string(sprintf_buffer);
+    HAL_Delay(200);
     OLED_Fill(0, 0, 30, 30, 1);
-    HAL_Delay(1000);
+    HAL_Delay(200);
     OLED_Fill(10, 10, 30, 30, 0);
-    lcd_clear();
-    HAL_Delay(1000);
+    HAL_Delay(200);
     // for (int i = 0; i < 180; i++)
     // {
     //   motor_move_angle(&m1, 1.0 * i);
@@ -461,15 +466,17 @@ int main(void)
     // uart_print(&huart2, sprintf_buffer);
     // HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
     // HAL_Delay(100);
-    // ADC_Value = dong_get_adc();
-    // lcd_clear();
-    // lcd_put_cur(0, 0);
-    // sprintf(sprintf_buffer, "adc %4d", (int)ADC_Value);
-    // lcd_send_string(sprintf_buffer);
 
-    // i2c_detect();
-    // for (float Angle = 0; Angle < 100; Angle += 10)
+    lcd_clear();
+    lcd_put_cur(0, 0);
+    sprintf(sprintf_buffer, "IIC DETECT %d", (int)0);
+    lcd_send_string(sprintf_buffer);
+    i2c_detect();
+
+    // for (float Angle = 0; Angle < 180; Angle += 1)
     // {
+    //   lcd_clear();
+
     //   PCA9685_SetServoAngle(ActiveServo, &Angle);
     //   lcd_put_cur(0, 0);
     //   sprintf(sprintf_buffer, "servo %d", (int)ActiveServo);
@@ -477,10 +484,12 @@ int main(void)
     //   lcd_put_cur(1, 0);
     //   sprintf(sprintf_buffer, "angle %d", (int)Angle);
     //   lcd_send_string(sprintf_buffer);
-    //   HAL_Delay(50);
+    //   HAL_Delay(4);
     // }
-    // for (float Angle = 100; Angle > 0; Angle -= 10)
+    // for (float Angle = 180; Angle > 0; Angle -= 1)
     // {
+    //   lcd_clear();
+
     //   PCA9685_SetServoAngle(ActiveServo, &Angle);
     //   lcd_put_cur(0, 0);
     //   sprintf(sprintf_buffer, "servo %d", (int)ActiveServo);
@@ -488,11 +497,41 @@ int main(void)
     //   lcd_put_cur(1, 0);
     //   sprintf(sprintf_buffer, "angle %d", (int)Angle);
     //   lcd_send_string(sprintf_buffer);
-    //   HAL_Delay(50);
+    //   HAL_Delay(4);
     // }
-    // ActiveServo++;
-    // if (ActiveServo > 1)
-    //   ActiveServo = 0;
+    ActiveServo++;
+    if (ActiveServo > 1)
+      ActiveServo = 0;
+    SD_MPU6050_Result result;
+    SD_MPU6050 mpu1;
+
+    uint8_t mpu_ok[15] = {"MPU WORK FINE\n"};
+    uint8_t mpu_not[17] = {"MPU NOT WORKING\n"};
+    result = SD_MPU6050_Init(&hi2c1, &mpu1, SD_MPU6050_Device_0, SD_MPU6050_Accelerometer_2G, SD_MPU6050_Gyroscope_250s);
+    HAL_Delay(500);
+    if (result == SD_MPU6050_Result_Ok)
+    {
+      printf("6050 ok\r\n");
+    }
+    else
+    {
+      printf("6050 buok\r\n");
+    }
+    HAL_Delay(500);
+    SD_MPU6050_ReadTemperature(&hi2c1, &mpu1);
+    float temper = mpu1.Temperature;
+    SD_MPU6050_ReadGyroscope(&hi2c1, &mpu1);
+    int16_t g_x = mpu1.Gyroscope_X;
+    int16_t g_y = mpu1.Gyroscope_Y;
+    int16_t g_z = mpu1.Gyroscope_Z;
+    SD_MPU6050_ReadAccelerometer(&hi2c1, &mpu1);
+    int16_t a_x = mpu1.Accelerometer_X;
+    int16_t a_y = mpu1.Accelerometer_Y;
+    int16_t a_z = mpu1.Accelerometer_Z;
+    sprintf(sprintf_buffer, "g_x %d g_y %d g_x %d \r\n", g_x, g_y, g_z);
+    printf("%s", sprintf_buffer);
+    sprintf(sprintf_buffer, "a_x %d a_y %d a_x %d \r\n", a_x, a_y, a_z);
+    printf("%s", sprintf_buffer);
     //   cnt = __HAL_TIM_GetCounter(&htim4);
     //   if (USART1_RX_STA & 0x8000)
     //   {
